@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>CONTABILIZADOR AO NEXUS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#141810;
+    --surface:#1c221a;
+    --surface-2:#232b1f;
+    --border:#333f2b;
+    --border-strong:#4a5c3e;
+    --text:#e9e7db;
+    --text-muted:#8f9686;
+    --gain:#7fb069;
+    --gain-dim:#3a4a30;
+    --loss:#c96b4a;
+    --loss-dim:#4a3324;
+    --gold:#c9a15a;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    padding:32px 20px 60px;
+  }
+  .wrap{max-width:860px;margin:0 auto;}
+  .title{
+    font-family:'Fraunces',serif;
+    font-weight:700;
+    font-size:26px;
+    letter-spacing:0.01em;
+    margin:0 0 4px;
+  }
+  .subtitle{color:var(--text-muted);font-size:14px;margin:0 0 8px;}
+  .notice{
+    font-size:12px;color:var(--text-muted);background:var(--surface-2);
+    border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:24px;
+  }
+  .summary{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:12px;
+    margin-bottom:28px;
+  }
+  .metric{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:14px 16px;
+  }
+  .metric-label{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;}
+  .metric-value{font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:600;}
+  .metric-value.gain{color:var(--gain);}
+  .metric-value.loss{color:var(--loss);}
+  .metric-value.gold{color:var(--gold);}
+  .panel{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:20px;
+    margin-bottom:20px;
+  }
+  .panel h2{
+    font-family:'Fraunces',serif;
+    font-weight:500;
+    font-size:17px;
+    margin:0 0 4px;
+  }
+  .panel .hint{font-size:12px;color:var(--text-muted);margin:0 0 16px;}
+  .form-row{display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;}
+  .field{display:flex;flex-direction:column;gap:6px;flex:1;min-width:130px;}
+  .field label{font-size:12px;color:var(--text-muted);}
+  input,select{
+    background:var(--surface-2);
+    border:1px solid var(--border-strong);
+    color:var(--text);
+    border-radius:6px;
+    padding:9px 10px;
+    font-size:14px;
+    font-family:'Inter',sans-serif;
+    width:100%;
+  }
+  input:focus,select:focus{outline:none;border-color:var(--gold);}
+  button.submit{
+    padding:10px 16px;
+    border-radius:6px;
+    border:none;
+    background:var(--gold);
+    color:#20240f;
+    font-weight:600;
+    font-size:14px;
+    cursor:pointer;
+  }
+  button.submit:hover{opacity:0.92;}
+  button.submit.full{width:100%;margin-top:4px;}
+  button.ghost{
+    padding:9px 12px;border-radius:6px;border:1px solid var(--border-strong);
+    background:var(--surface-2);color:var(--text-muted);font-size:13px;cursor:pointer;
+  }
+  button.ghost:hover{color:var(--gold);border-color:var(--gold);}
+  .error{color:var(--loss);font-size:12px;margin-top:-6px;margin-bottom:10px;display:none;}
+
+  .combo{
+    background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+    padding:18px 20px;margin-bottom:16px;
+  }
+  .combo-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:6px;}
+  .combo-name{font-family:'Fraunces',serif;font-weight:500;font-size:16px;}
+  .combo-meta{font-size:12px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;margin-top:4px;line-height:1.6;}
+  .combo-stats{display:flex;gap:16px;align-items:center;flex-shrink:0;}
+  .combo-stat{text-align:right;}
+  .combo-stat-label{font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;}
+  .combo-stat-value{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:600;}
+  .combo-stat-value.gain{color:var(--gain);}
+  .combo-stat-value.loss{color:var(--loss);}
+
+  .components{border-top:1px solid var(--border);padding-top:10px;margin-top:14px;}
+  .comp-row{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    padding:8px 0;border-bottom:1px solid var(--border);
+  }
+  .comp-name{font-size:14px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .comp-sale-input{width:110px;padding:6px 8px;font-size:13px;}
+  .comp-del{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:16px;padding:0 4px;}
+  .comp-del:hover{color:var(--loss);}
+
+  .add-comp{display:flex;gap:8px;margin-top:10px;}
+  .add-comp input{font-size:13px;padding:7px 9px;}
+  .add-comp .ac-name{flex:2;}
+  .add-comp .ac-sale{flex:1;}
+
+  .del-combo{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:16px;padding:0 4px;flex-shrink:0;}
+  .del-combo:hover{color:var(--loss);}
+
+  .empty{color:var(--text-muted);font-size:14px;padding:20px 4px;text-align:center;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="title">CONTABILIZADOR AO NEXUS</div>
+  <div class="subtitle">Compras, tipo de cambio, impuesto de importación y ventas por componente</div>
+  <div class="notice">Los datos se guardan en este navegador (localStorage). Si tú y tu socio abren la página desde equipos distintos, cada uno verá su propia copia — no se sincroniza sola entre los dos todavía.</div>
+
+  <div class="summary">
+    <div class="metric">
+      <div class="metric-label">Invertido (c/ impuesto)</div>
+      <div class="metric-value gold" id="m-invertido">S/ 0</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Recuperado</div>
+      <div class="metric-value" id="m-recuperado">S/ 0</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Ganancia</div>
+      <div class="metric-value gain" id="m-ganancia">S/ 0</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Pendientes</div>
+      <div class="metric-value" id="m-pendientes">0</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Nueva compra</h2>
+    <div class="hint">Registra el total que pagaron (por un producto o un combo completo). Si pagaron en dólares, pon el tipo de cambio de ese día. Si les cobraron impuesto por traerlo, pon el % aquí y se suma al costo real.</div>
+    <div class="form-row">
+      <div class="field" style="flex:2;">
+        <label for="c-name">Nombre de la compra</label>
+        <input type="text" id="c-name" placeholder="Ej: Combo Ryzen 7 + B850 + RAM 32GB">
+      </div>
+      <div class="field">
+        <label for="c-cost">Costo del producto</label>
+        <input type="number" id="c-cost" placeholder="0.00" step="0.01" min="0">
+      </div>
+      <div class="field" style="max-width:90px;">
+        <label for="c-currency">Moneda</label>
+        <select id="c-currency">
+          <option value="PEN">S/</option>
+          <option value="USD">$</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="field">
+        <label for="c-rate">Tipo de cambio del día (si fue en $)</label>
+        <input type="number" id="c-rate" placeholder="Ej: 3.75" step="0.001" min="0">
+      </div>
+      <div class="field">
+        <label for="c-tax">Impuesto de importación (%)</label>
+        <input type="number" id="c-tax" placeholder="Ej: 18" step="0.01" min="0">
+      </div>
+    </div>
+    <div class="error" id="form-error">Ingresa el nombre y el costo de la compra.</div>
+    <button class="submit full" id="add-combo-btn">Agregar compra</button>
+  </div>
+
+  <div id="combos-container"></div>
+</div>
+
+<script>
+let combos = [];
+const STORAGE_KEY = 'ao_nexus_combos';
+
+function loadAll(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    combos = raw ? JSON.parse(raw) : [];
+  }catch(e){
+    combos = [];
+  }
+  render();
+}
+
+function saveCombos(){
+  try{
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(combos));
+  }catch(e){
+    console.error('No se pudo guardar', e);
+  }
+}
+
+function fmt(n){
+  return 'S/ ' + Number(n).toLocaleString('es-PE', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+function fmtOriginal(n, currency){
+  const symbol = currency === 'USD' ? '$' : 'S/';
+  return symbol + ' ' + Number(n).toLocaleString('es-PE', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+
+// Costo real en soles ya incluyendo conversion de moneda + impuesto de importacion
+function realCostSoles(combo){
+  const rate = combo.currency === 'USD' ? (combo.rate || 0) : 1;
+  const base = combo.currency === 'USD' ? combo.cost * rate : combo.cost;
+  const tax = combo.tax || 0;
+  return base * (1 + tax / 100);
+}
+
+function escapeHtml(str){
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+function render(){
+  let invertido = 0, recuperado = 0, pendientes = 0;
+  combos.forEach(c => {
+    invertido += realCostSoles(c);
+    c.components.forEach(comp => {
+      if(comp.sale !== null) recuperado += comp.sale;
+      else pendientes += 1;
+    });
+  });
+
+  document.getElementById('m-invertido').textContent = fmt(invertido);
+  document.getElementById('m-recuperado').textContent = fmt(recuperado);
+  const gEl = document.getElementById('m-ganancia');
+  const gananciaTotal = recuperado - invertido;
+  gEl.textContent = fmt(gananciaTotal);
+  gEl.className = 'metric-value ' + (gananciaTotal >= 0 ? 'gain' : 'loss');
+  document.getElementById('m-pendientes').textContent = pendientes;
+
+  const container = document.getElementById('combos-container');
+  if(combos.length === 0){
+    container.innerHTML = '<div class="empty">Todavía no hay compras registradas. Agrega la primera arriba.</div>';
+    return;
+  }
+
+  container.innerHTML = combos.map(c => {
+    const costSoles = realCostSoles(c);
+    const recuperadoCombo = c.components.reduce((s,comp) => s + (comp.sale !== null ? comp.sale : 0), 0);
+    const gananciaCombo = recuperadoCombo - costSoles;
+
+    let metaParts = [`costo ${fmtOriginal(c.cost, c.currency)}`];
+    if(c.currency === 'USD') metaParts.push(`TC ${c.rate || 0}`);
+    if(c.tax) metaParts.push(`impuesto ${c.tax}%`);
+    metaParts.push(`costo real ${fmt(costSoles)}`);
+
+    const compsHtml = c.components.length === 0
+      ? '<div style="color:var(--text-muted);font-size:13px;padding:8px 0;">Aún no agregaste componentes de esta compra.</div>'
+      : c.components.map(comp => `
+        <div class="comp-row" data-cid="${c.id}" data-pid="${comp.id}">
+          <div class="comp-name">${escapeHtml(comp.name)}</div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="font-size:12px;color:var(--text-muted);">venta</span>
+            <input type="number" class="comp-sale-input" step="0.01" min="0" placeholder="pendiente"
+              value="${comp.sale === null ? '' : comp.sale}"
+              data-cid="${c.id}" data-pid="${comp.id}">
+          </div>
+          <button class="comp-del" data-cid="${c.id}" data-pid="${comp.id}" aria-label="Eliminar componente">×</button>
+        </div>
+      `).join('');
+
+    return `
+    <div class="combo" data-cid="${c.id}">
+      <div class="combo-head">
+        <div>
+          <div class="combo-name">${escapeHtml(c.name)}</div>
+          <div class="combo-meta">${metaParts.join(' · ')}</div>
+        </div>
+        <div class="combo-stats">
+          <div class="combo-stat">
+            <div class="combo-stat-label">Recuperado</div>
+            <div class="combo-stat-value">${fmt(recuperadoCombo)}</div>
+          </div>
+          <div class="combo-stat">
+            <div class="combo-stat-label">Ganancia</div>
+            <div class="combo-stat-value ${gananciaCombo >= 0 ? 'gain' : 'loss'}">${gananciaCombo >= 0 ? '+' : ''}${fmt(gananciaCombo)}</div>
+          </div>
+          <button class="del-combo" data-cid="${c.id}" aria-label="Eliminar compra">×</button>
+        </div>
+      </div>
+      <div class="components">${compsHtml}</div>
+      <div class="add-comp">
+        <input type="text" class="ac-name" placeholder="Nombre del componente" data-cid="${c.id}">
+        <input type="number" class="ac-sale" placeholder="Precio de venta (opcional)" step="0.01" min="0" data-cid="${c.id}">
+        <button class="ghost ac-add" data-cid="${c.id}">Agregar</button>
+      </div>
+    </div>
+    `;
+  }).join('');
+
+  container.querySelectorAll('.del-combo').forEach(btn => {
+    btn.addEventListener('click', () => deleteCombo(btn.dataset.cid));
+  });
+  container.querySelectorAll('.comp-del').forEach(btn => {
+    btn.addEventListener('click', () => deleteComponent(btn.dataset.cid, btn.dataset.pid));
+  });
+  container.querySelectorAll('.comp-sale-input').forEach(inp => {
+    inp.addEventListener('change', () => updateComponentSale(inp.dataset.cid, inp.dataset.pid, inp.value));
+  });
+  container.querySelectorAll('.ac-add').forEach(btn => {
+    btn.addEventListener('click', () => addComponent(btn.dataset.cid));
+  });
+}
+
+function findCombo(cid){
+  return combos.find(c => c.id === cid);
+}
+
+function addComponent(cid){
+  const combo = findCombo(cid);
+  if(!combo) return;
+  const nameInput = document.querySelector(`.ac-name[data-cid="${cid}"]`);
+  const saleInput = document.querySelector(`.ac-sale[data-cid="${cid}"]`);
+  const name = nameInput.value.trim();
+  if(!name) return;
+  const saleRaw = saleInput.value;
+  const sale = saleRaw === '' ? null : parseFloat(saleRaw);
+  combo.components.push({
+    id: Date.now().toString(),
+    name: name,
+    sale: (sale !== null && !isNaN(sale)) ? sale : null
+  });
+  saveCombos();
+  render();
+}
+
+function updateComponentSale(cid, pid, rawValue){
+  const combo = findCombo(cid);
+  if(!combo) return;
+  const comp = combo.components.find(x => x.id === pid);
+  if(!comp) return;
+  const trimmed = String(rawValue).trim();
+  comp.sale = trimmed === '' ? null : parseFloat(trimmed);
+  if(isNaN(comp.sale)) comp.sale = null;
+  saveCombos();
+  render();
+}
+
+function deleteComponent(cid, pid){
+  const combo = findCombo(cid);
+  if(!combo) return;
+  combo.components = combo.components.filter(x => x.id !== pid);
+  saveCombos();
+  render();
+}
+
+function deleteCombo(cid){
+  combos = combos.filter(c => c.id !== cid);
+  saveCombos();
+  render();
+}
+
+document.getElementById('add-combo-btn').addEventListener('click', () => {
+  const nameInput = document.getElementById('c-name');
+  const costInput = document.getElementById('c-cost');
+  const currencyInput = document.getElementById('c-currency');
+  const rateInput = document.getElementById('c-rate');
+  const taxInput = document.getElementById('c-tax');
+  const errorEl = document.getElementById('form-error');
+
+  const name = nameInput.value.trim();
+  const cost = parseFloat(costInput.value);
+  if(!name || isNaN(cost) || cost < 0){
+    errorEl.style.display = 'block';
+    return;
+  }
+  errorEl.style.display = 'none';
+
+  combos.unshift({
+    id: Date.now().toString(),
+    name: name,
+    cost: cost,
+    currency: currencyInput.value,
+    rate: parseFloat(rateInput.value) || 0,
+    tax: parseFloat(taxInput.value) || 0,
+    components: []
+  });
+  saveCombos();
+  nameInput.value = '';
+  costInput.value = '';
+  rateInput.value = '';
+  taxInput.value = '';
+  render();
+});
+
+loadAll();
+</script>
+</body>
+</html>
