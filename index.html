@@ -37,11 +37,15 @@
     letter-spacing:0.01em;
     margin:0 0 4px;
   }
-  .subtitle{color:var(--text-muted);font-size:14px;margin:0 0 8px;}
-  .notice{
+  .subtitle{color:var(--text-muted);font-size:14px;margin:0 0 12px;}
+  .status-bar{
     font-size:12px;color:var(--text-muted);background:var(--surface-2);
-    border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:24px;
+    border:1px solid var(--border);border-radius:8px;padding:9px 14px;margin-bottom:24px;
+    display:flex;align-items:center;gap:8px;
   }
+  .status-bar.error{color:var(--loss);border-color:var(--loss-dim);}
+  .status-dot{width:7px;height:7px;border-radius:50%;background:var(--gain);flex-shrink:0;}
+  .status-bar.error .status-dot{background:var(--loss);}
   .summary{
     display:grid;
     grid-template-columns:repeat(4,1fr);
@@ -99,6 +103,7 @@
   }
   button.submit:hover{opacity:0.92;}
   button.submit.full{width:100%;margin-top:4px;}
+  button.submit:disabled{opacity:0.5;cursor:not-allowed;}
   button.ghost{
     padding:9px 12px;border-radius:6px;border:1px solid var(--border-strong);
     background:var(--surface-2);color:var(--text-muted);font-size:13px;cursor:pointer;
@@ -145,7 +150,7 @@
 <div class="wrap">
   <div class="title">CONTABILIZADOR AO NEXUS</div>
   <div class="subtitle">Compras, tipo de cambio, impuesto de importación y ventas por componente</div>
-  <div class="notice">Los datos se guardan en este navegador (localStorage). Si tú y tu socio abren la página desde equipos distintos, cada uno verá su propia copia — no se sincroniza sola entre los dos todavía.</div>
+  <div class="status-bar" id="sync-status"><div class="status-dot"></div><span id="sync-status-text">Conectando con GitHub...</span></div>
 
   <div class="summary">
     <div class="metric">
@@ -204,24 +209,103 @@
 </div>
 
 <script>
-let combos = [];
-const STORAGE_KEY = 'ao_nexus_combos';
+/* ======================================================================
+   CONFIGURA AQUÍ TU REPOSITORIO DE GITHUB
+   ----------------------------------------------------------------------
+   owner  -> tu usuario de GitHub (ej: "juanperez")
+   repo   -> el nombre del repositorio donde vive esta página
+   path   -> la ruta del archivo donde se guardarán los datos
+             (no necesitas crearlo a mano, se crea solo)
+   branch -> normalmente "main"
+   token  -> un Personal Access Token de GitHub con permiso de
+             "Contents: Read and write" SOLO sobre este repositorio
+             (Settings -> Developer settings -> Fine-grained tokens)
 
-function loadAll(){
-  try{
-    const raw = localStorage.getItem(STORAGE_KEY);
-    combos = raw ? JSON.parse(raw) : [];
-  }catch(e){
-    combos = [];
-  }
-  render();
+   IMPORTANTE: este token queda visible en el código de la página.
+   Úsalo solo con permisos limitados a este único repo.
+   ====================================================================== */
+const CONFIG = {
+  owner: 'ValentinoTR',
+  repo: 'CONTABILIZADOR',
+  path: 'datos-ao-nexus.json',
+  branch: 'main',
+  token: '1234'
+};
+/* ====================================================================== */
+
+let combos = [];
+let currentSha = null;
+let pollTimer = null;
+
+function setStatus(text, isError){
+  document.getElementById('sync-status-text').textContent = text;
+  document.getElementById('sync-status').className = 'status-bar' + (isError ? ' error' : '');
 }
 
-function saveCombos(){
+function ghHeaders(){
+  return { 'Authorization': 'token ' + CONFIG.token, 'Accept': 'application/vnd.github+json' };
+}
+
+function b64ToStr(b64){
+  return decodeURIComponent(escape(atob(b64.replace(/\n/g, ''))));
+}
+function strToB64(str){
+  return btoa(unescape(encodeURIComponent(str)));
+}
+
+async function loadFromGitHub(){
+  if(CONFIG.owner === 'TU_USUARIO_GITHUB' || !CONFIG.token || CONFIG.token === 'TU_TOKEN_AQUI'){
+    setStatus('Falta configurar owner/repo/token arriba en el código.', true);
+    return;
+  }
   try{
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(combos));
+    const url = `https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}/contents/${CONFIG.path}?ref=${CONFIG.branch}&t=${Date.now()}`;
+    const res = await fetch(url, { headers: ghHeaders() });
+    if(res.status === 404){
+      combos = [];
+      currentSha = null;
+      setStatus('Listo. El archivo se creará con tu primera compra.');
+      render();
+      return;
+    }
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    currentSha = data.sha;
+    const parsed = JSON.parse(b64ToStr(data.content) || '{"combos":[]}');
+    combos = parsed.combos || [];
+    setStatus('Sincronizado · ' + new Date().toLocaleTimeString('es-PE'));
+    render();
   }catch(e){
-    console.error('No se pudo guardar', e);
+    setStatus('No se pudo conectar con GitHub. Revisa owner/repo/token.', true);
+  }
+}
+
+async function saveToGitHub(){
+  setStatus('Guardando...');
+  try{
+    const body = {
+      message: 'Actualizar datos AO NEXUS',
+      content: strToB64(JSON.stringify({ combos }, null, 2)),
+      branch: CONFIG.branch
+    };
+    if(currentSha) body.sha = currentSha;
+    const url = `https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}/contents/${CONFIG.path}`;
+    const res = await fetch(url, {
+      method: 'PUT',
+      headers: { ...ghHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if(res.status === 409){
+      setStatus('Tu amigo guardó al mismo tiempo. Recargando datos...', true);
+      await loadFromGitHub();
+      return;
+    }
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    currentSha = data.content.sha;
+    setStatus('Sincronizado · ' + new Date().toLocaleTimeString('es-PE'));
+  }catch(e){
+    setStatus('No se pudo guardar en GitHub. Revisa owner/repo/token.', true);
   }
 }
 
@@ -232,15 +316,12 @@ function fmtOriginal(n, currency){
   const symbol = currency === 'USD' ? '$' : 'S/';
   return symbol + ' ' + Number(n).toLocaleString('es-PE', {minimumFractionDigits:2, maximumFractionDigits:2});
 }
-
-// Costo real en soles ya incluyendo conversion de moneda + impuesto de importacion
 function realCostSoles(combo){
   const rate = combo.currency === 'USD' ? (combo.rate || 0) : 1;
   const base = combo.currency === 'USD' ? combo.cost * rate : combo.cost;
   const tax = combo.tax || 0;
   return base * (1 + tax / 100);
 }
-
 function escapeHtml(str){
   const d = document.createElement('div');
   d.textContent = str;
@@ -343,7 +424,7 @@ function findCombo(cid){
   return combos.find(c => c.id === cid);
 }
 
-function addComponent(cid){
+async function addComponent(cid){
   const combo = findCombo(cid);
   if(!combo) return;
   const nameInput = document.querySelector(`.ac-name[data-cid="${cid}"]`);
@@ -357,11 +438,11 @@ function addComponent(cid){
     name: name,
     sale: (sale !== null && !isNaN(sale)) ? sale : null
   });
-  saveCombos();
   render();
+  await saveToGitHub();
 }
 
-function updateComponentSale(cid, pid, rawValue){
+async function updateComponentSale(cid, pid, rawValue){
   const combo = findCombo(cid);
   if(!combo) return;
   const comp = combo.components.find(x => x.id === pid);
@@ -369,25 +450,25 @@ function updateComponentSale(cid, pid, rawValue){
   const trimmed = String(rawValue).trim();
   comp.sale = trimmed === '' ? null : parseFloat(trimmed);
   if(isNaN(comp.sale)) comp.sale = null;
-  saveCombos();
   render();
+  await saveToGitHub();
 }
 
-function deleteComponent(cid, pid){
+async function deleteComponent(cid, pid){
   const combo = findCombo(cid);
   if(!combo) return;
   combo.components = combo.components.filter(x => x.id !== pid);
-  saveCombos();
   render();
+  await saveToGitHub();
 }
 
-function deleteCombo(cid){
+async function deleteCombo(cid){
   combos = combos.filter(c => c.id !== cid);
-  saveCombos();
   render();
+  await saveToGitHub();
 }
 
-document.getElementById('add-combo-btn').addEventListener('click', () => {
+document.getElementById('add-combo-btn').addEventListener('click', async () => {
   const nameInput = document.getElementById('c-name');
   const costInput = document.getElementById('c-cost');
   const currencyInput = document.getElementById('c-currency');
@@ -412,15 +493,16 @@ document.getElementById('add-combo-btn').addEventListener('click', () => {
     tax: parseFloat(taxInput.value) || 0,
     components: []
   });
-  saveCombos();
+  render();
+  await saveToGitHub();
   nameInput.value = '';
   costInput.value = '';
   rateInput.value = '';
   taxInput.value = '';
-  render();
 });
 
-loadAll();
+loadFromGitHub();
+pollTimer = setInterval(loadFromGitHub, 30000);
 </script>
 </body>
 </html>
