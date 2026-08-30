@@ -144,15 +144,41 @@
   .del-combo:hover{color:var(--loss);}
 
   .empty{color:var(--text-muted);font-size:14px;padding:20px 4px;text-align:center;}
+
+  .auth-panel{
+    background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+    padding:20px;margin-bottom:20px;
+  }
+  .auth-panel h2{font-family:'Fraunces',serif;font-weight:500;font-size:17px;margin:0 0 12px;}
+  .auth-actions{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;}
+  .auth-error{color:var(--loss);font-size:12px;margin-top:10px;display:none;}
+  .logout-btn{margin-left:auto;padding:6px 10px;border-radius:6px;border:1px solid var(--border-strong);background:transparent;color:var(--text-muted);cursor:pointer;font-size:12px;display:none;}
+  .logout-btn:hover{color:var(--gold);border-color:var(--gold);}
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="title">CONTABILIZADOR AO NEXUS</div>
   <div class="subtitle">Compras, tipo de cambio, impuesto de importación y ventas por componente</div>
-  <div class="status-bar" id="sync-status"><div class="status-dot"></div><span id="sync-status-text">Conectando con GitHub...</span></div>
+  <div class="status-bar" id="sync-status"><div class="status-dot"></div><span id="sync-status-text">Conectando con Supabase...</span><button class="logout-btn" id="logout-btn">Cerrar sesión</button></div>
 
-  <div class="summary">
+  <div class="auth-panel" id="auth-panel">
+    <h2>Iniciar sesión</h2>
+    <div class="auth-actions">
+      <div class="field">
+        <label for="auth-email">Correo</label>
+        <input type="email" id="auth-email" placeholder="tu@correo.com">
+      </div>
+      <div class="field">
+        <label for="auth-password">Contraseña</label>
+        <input type="password" id="auth-password" placeholder="Contraseña">
+      </div>
+      <button class="submit" id="login-btn">Entrar</button>
+    </div>
+    <div class="auth-error" id="auth-error"></div>
+  </div>
+
+  <div class="summary" id="summary-section" style="display:none;">
     <div class="metric">
       <div class="metric-label">Invertido (c/ impuesto)</div>
       <div class="metric-value gold" id="m-invertido">S/ 0</div>
@@ -171,7 +197,7 @@
     </div>
   </div>
 
-  <div class="panel">
+  <div class="panel" id="purchase-panel" style="display:none;">
     <h2>Nueva compra</h2>
     <div class="hint">Registra el total que pagaron (por un producto o un combo completo). Si pagaron en dólares, pon el tipo de cambio de ese día. Si les cobraron impuesto por traerlo, pon el % aquí y se suma al costo real.</div>
     <div class="form-row">
@@ -205,36 +231,16 @@
     <button class="submit full" id="add-combo-btn">Agregar compra</button>
   </div>
 
-  <div id="combos-container"></div>
+  <div id="combos-container" style="display:none;"></div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-/* ======================================================================
-   CONFIGURA AQUÍ TU REPOSITORIO DE GITHUB
-   ----------------------------------------------------------------------
-   owner  -> tu usuario de GitHub (ej: "juanperez")
-   repo   -> el nombre del repositorio donde vive esta página
-   path   -> la ruta del archivo donde se guardarán los datos
-             (no necesitas crearlo a mano, se crea solo)
-   branch -> normalmente "main"
-   token  -> un Personal Access Token de GitHub con permiso de
-             "Contents: Read and write" SOLO sobre este repositorio
-             (Settings -> Developer settings -> Fine-grained tokens)
-
-   IMPORTANTE: este token queda visible en el código de la página.
-   Úsalo solo con permisos limitados a este único repo.
-   ====================================================================== */
-const CONFIG = {
-  owner: 'ValentinoTR',
-  repo: 'CONTABILIZADOR',
-  path: 'datos-ao-nexus.json',
-  branch: 'main',
-  token: '1234'
-};
-/* ====================================================================== */
+const SUPABASE_URL = 'https://rqoxzaszzvwxpvomfvay.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_Kph-kN-eCWBwXxVq-g51Uw_TqmUE2hZ';
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
 let combos = [];
-let currentSha = null;
 let pollTimer = null;
 
 function setStatus(text, isError){
@@ -242,70 +248,50 @@ function setStatus(text, isError){
   document.getElementById('sync-status').className = 'status-bar' + (isError ? ' error' : '');
 }
 
-function ghHeaders(){
-  return { 'Authorization': 'token ' + CONFIG.token, 'Accept': 'application/vnd.github+json' };
+function setAppVisible(visible){
+  document.getElementById('auth-panel').style.display = visible ? 'none' : 'block';
+  document.getElementById('summary-section').style.display = visible ? 'grid' : 'none';
+  document.getElementById('purchase-panel').style.display = visible ? 'block' : 'none';
+  document.getElementById('combos-container').style.display = visible ? 'block' : 'none';
+  document.getElementById('logout-btn').style.display = visible ? 'block' : 'none';
 }
 
-function b64ToStr(b64){
-  return decodeURIComponent(escape(atob(b64.replace(/\n/g, ''))));
-}
-function strToB64(str){
-  return btoa(unescape(encodeURIComponent(str)));
-}
-
-async function loadFromGitHub(){
-  if(CONFIG.owner === 'TU_USUARIO_GITHUB' || !CONFIG.token || CONFIG.token === 'TU_TOKEN_AQUI'){
-    setStatus('Falta configurar owner/repo/token arriba en el código.', true);
-    return;
-  }
+async function loadFromSupabase(){
   try{
-    const url = `https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}/contents/${CONFIG.path}?ref=${CONFIG.branch}&t=${Date.now()}`;
-    const res = await fetch(url, { headers: ghHeaders() });
-    if(res.status === 404){
-      combos = [];
-      currentSha = null;
-      setStatus('Listo. El archivo se creará con tu primera compra.');
-      render();
-      return;
-    }
-    if(!res.ok) throw new Error('HTTP ' + res.status);
-    const data = await res.json();
-    currentSha = data.sha;
-    const parsed = JSON.parse(b64ToStr(data.content) || '{"combos":[]}');
-    combos = parsed.combos || [];
+    setStatus('Sincronizando con Supabase...');
+
+    const { data: compras, error: comprasError } = await db
+      .from('COMPRAS')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if(comprasError) throw comprasError;
+
+    const { data: componentes, error: componentesError } = await db
+      .from('COMPONENTES')
+      .select('*');
+    if(componentesError) throw componentesError;
+
+    combos = (compras || []).map(c => ({
+      id: String(c.id),
+      name: c.nombre,
+      cost: Number(c.costo || 0),
+      currency: c.moneda || 'PEN',
+      rate: Number(c.tipo_cambio || 0),
+      tax: Number(c.impuesto || 0),
+      components: (componentes || [])
+        .filter(comp => String(comp.compra_id) === String(c.id))
+        .map(comp => ({
+          id: String(comp.id),
+          name: comp.nombre,
+          sale: comp.precio_venta === null ? null : Number(comp.precio_venta)
+        }))
+    }));
+
     setStatus('Sincronizado · ' + new Date().toLocaleTimeString('es-PE'));
     render();
   }catch(e){
-    setStatus('No se pudo conectar con GitHub. Revisa owner/repo/token.', true);
-  }
-}
-
-async function saveToGitHub(){
-  setStatus('Guardando...');
-  try{
-    const body = {
-      message: 'Actualizar datos AO NEXUS',
-      content: strToB64(JSON.stringify({ combos }, null, 2)),
-      branch: CONFIG.branch
-    };
-    if(currentSha) body.sha = currentSha;
-    const url = `https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}/contents/${CONFIG.path}`;
-    const res = await fetch(url, {
-      method: 'PUT',
-      headers: { ...ghHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    });
-    if(res.status === 409){
-      setStatus('Tu amigo guardó al mismo tiempo. Recargando datos...', true);
-      await loadFromGitHub();
-      return;
-    }
-    if(!res.ok) throw new Error('HTTP ' + res.status);
-    const data = await res.json();
-    currentSha = data.content.sha;
-    setStatus('Sincronizado · ' + new Date().toLocaleTimeString('es-PE'));
-  }catch(e){
-    setStatus('No se pudo guardar en GitHub. Revisa owner/repo/token.', true);
+    console.error(e);
+    setStatus('No se pudo cargar Supabase: ' + (e.message || 'error desconocido'), true);
   }
 }
 
@@ -402,8 +388,7 @@ function render(){
         <input type="number" class="ac-sale" placeholder="Precio de venta (opcional)" step="0.01" min="0" data-cid="${c.id}">
         <button class="ghost ac-add" data-cid="${c.id}">Agregar</button>
       </div>
-    </div>
-    `;
+    </div>`;
   }).join('');
 
   container.querySelectorAll('.del-combo').forEach(btn => {
@@ -420,52 +405,63 @@ function render(){
   });
 }
 
-function findCombo(cid){
-  return combos.find(c => c.id === cid);
-}
-
 async function addComponent(cid){
-  const combo = findCombo(cid);
-  if(!combo) return;
   const nameInput = document.querySelector(`.ac-name[data-cid="${cid}"]`);
   const saleInput = document.querySelector(`.ac-sale[data-cid="${cid}"]`);
   const name = nameInput.value.trim();
   if(!name) return;
-  const saleRaw = saleInput.value;
+
+  const saleRaw = saleInput.value.trim();
   const sale = saleRaw === '' ? null : parseFloat(saleRaw);
-  combo.components.push({
-    id: Date.now().toString(),
-    name: name,
-    sale: (sale !== null && !isNaN(sale)) ? sale : null
+
+  const { error } = await db.from('COMPONENTES').insert({
+    compra_id: Number(cid),
+    nombre: name,
+    precio_venta: sale !== null && !isNaN(sale) ? sale : null
   });
-  render();
-  await saveToGitHub();
+
+  if(error){
+    console.error(error);
+    setStatus('Error al agregar componente: ' + error.message, true);
+    return;
+  }
+  await loadFromSupabase();
 }
 
 async function updateComponentSale(cid, pid, rawValue){
-  const combo = findCombo(cid);
-  if(!combo) return;
-  const comp = combo.components.find(x => x.id === pid);
-  if(!comp) return;
   const trimmed = String(rawValue).trim();
-  comp.sale = trimmed === '' ? null : parseFloat(trimmed);
-  if(isNaN(comp.sale)) comp.sale = null;
-  render();
-  await saveToGitHub();
+  const value = trimmed === '' ? null : parseFloat(trimmed);
+
+  const { error } = await db.from('COMPONENTES')
+    .update({ precio_venta: value === null || isNaN(value) ? null : value })
+    .eq('id', Number(pid));
+
+  if(error){
+    console.error(error);
+    setStatus('Error al actualizar venta: ' + error.message, true);
+    return;
+  }
+  await loadFromSupabase();
 }
 
 async function deleteComponent(cid, pid){
-  const combo = findCombo(cid);
-  if(!combo) return;
-  combo.components = combo.components.filter(x => x.id !== pid);
-  render();
-  await saveToGitHub();
+  const { error } = await db.from('COMPONENTES').delete().eq('id', Number(pid));
+  if(error){
+    console.error(error);
+    setStatus('Error al eliminar componente: ' + error.message, true);
+    return;
+  }
+  await loadFromSupabase();
 }
 
 async function deleteCombo(cid){
-  combos = combos.filter(c => c.id !== cid);
-  render();
-  await saveToGitHub();
+  const { error } = await db.from('COMPRAS').delete().eq('id', Number(cid));
+  if(error){
+    console.error(error);
+    setStatus('Error al eliminar compra: ' + error.message, true);
+    return;
+  }
+  await loadFromSupabase();
 }
 
 document.getElementById('add-combo-btn').addEventListener('click', async () => {
@@ -484,25 +480,80 @@ document.getElementById('add-combo-btn').addEventListener('click', async () => {
   }
   errorEl.style.display = 'none';
 
-  combos.unshift({
-    id: Date.now().toString(),
-    name: name,
-    cost: cost,
-    currency: currencyInput.value,
-    rate: parseFloat(rateInput.value) || 0,
-    tax: parseFloat(taxInput.value) || 0,
-    components: []
+  const { error } = await db.from('COMPRAS').insert({
+    nombre: name,
+    costo: cost,
+    moneda: currencyInput.value,
+    tipo_cambio: parseFloat(rateInput.value) || 0,
+    impuesto: parseFloat(taxInput.value) || 0
   });
-  render();
-  await saveToGitHub();
+
+  if(error){
+    console.error(error);
+    setStatus('Error al guardar compra: ' + error.message, true);
+    return;
+  }
+
   nameInput.value = '';
   costInput.value = '';
   rateInput.value = '';
   taxInput.value = '';
+  await loadFromSupabase();
 });
 
-loadFromGitHub();
-pollTimer = setInterval(loadFromGitHub, 30000);
+document.getElementById('login-btn').addEventListener('click', async () => {
+  const email = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  const errorEl = document.getElementById('auth-error');
+  errorEl.style.display = 'none';
+
+  if(!email || !password){
+    errorEl.textContent = 'Ingresa tu correo y contraseña.';
+    errorEl.style.display = 'block';
+    return;
+  }
+
+  setStatus('Iniciando sesión...');
+  const { error } = await db.auth.signInWithPassword({ email, password });
+  if(error){
+    errorEl.textContent = 'No se pudo iniciar sesión: ' + error.message;
+    errorEl.style.display = 'block';
+    setStatus('Sesión no iniciada', true);
+  }
+});
+
+document.getElementById('logout-btn').addEventListener('click', async () => {
+  await db.auth.signOut();
+});
+
+async function handleSession(session){
+  const loggedIn = !!session;
+  setAppVisible(loggedIn);
+
+  if(pollTimer){
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
+
+  if(loggedIn){
+    setStatus('Conectado a Supabase');
+    await loadFromSupabase();
+    pollTimer = setInterval(loadFromSupabase, 30000);
+  }else{
+    combos = [];
+    render();
+    setStatus('Inicia sesión para ver y guardar los datos.');
+  }
+}
+
+db.auth.onAuthStateChange((_event, session) => {
+  setTimeout(() => handleSession(session), 0);
+});
+
+(async function init(){
+  const { data: { session } } = await db.auth.getSession();
+  await handleSession(session);
+})();
 </script>
 </body>
 </html>
