@@ -264,11 +264,22 @@ async function loadFromSupabase(){
   try{
     setStatus('Sincronizando con Supabase...');
 
-    const { data: compras, error: comprasError } = await db
+    let { data: compras, error: comprasError } = await db
       .from('COMPRAS')
       .select('*')
       .order('numero', { ascending: true, nullsFirst: false })
       .order('created_at', { ascending: false });
+
+    if(comprasError){
+      // Si la columna "numero" todavía no existe en la tabla, reintentamos sin ordenar por ella
+      // para no perder la visualización de las compras ya guardadas.
+      const retry = await db
+        .from('COMPRAS')
+        .select('*')
+        .order('created_at', { ascending: false });
+      compras = retry.data;
+      comprasError = retry.error;
+    }
     if(comprasError) throw comprasError;
 
     const { data: componentes, error: componentesError } = await db
