@@ -201,6 +201,10 @@
     <h2>Nueva compra</h2>
     <div class="hint">Registra el total que pagaron (por un producto o un combo completo). Si pagaron en dólares, pon el tipo de cambio de ese día. Si les cobraron impuesto por traerlo, pon el % aquí y se suma al costo real.</div>
     <div class="form-row">
+      <div class="field" style="max-width:90px;">
+        <label for="c-numero">N°</label>
+        <input type="number" id="c-numero" placeholder="Ej: 1" step="1" min="0">
+      </div>
       <div class="field" style="flex:2;">
         <label for="c-name">Nombre de la compra</label>
         <input type="text" id="c-name" placeholder="Ej: Combo Ryzen 7 + B850 + RAM 32GB">
@@ -263,6 +267,7 @@ async function loadFromSupabase(){
     const { data: compras, error: comprasError } = await db
       .from('COMPRAS')
       .select('*')
+      .order('numero', { ascending: true, nullsFirst: false })
       .order('created_at', { ascending: false });
     if(comprasError) throw comprasError;
 
@@ -273,6 +278,7 @@ async function loadFromSupabase(){
 
     combos = (compras || []).map(c => ({
       id: String(c.id),
+      numero: c.numero === null || c.numero === undefined ? null : Number(c.numero),
       name: c.nombre,
       cost: Number(c.costo || 0),
       currency: c.moneda || 'PEN',
@@ -367,7 +373,7 @@ function render(){
     <div class="combo" data-cid="${c.id}">
       <div class="combo-head">
         <div>
-          <div class="combo-name">${escapeHtml(c.name)}</div>
+          <div class="combo-name">${c.numero !== null ? `<span style="color:var(--gold);">N° ${c.numero}</span> — ` : ''}${escapeHtml(c.name)}</div>
           <div class="combo-meta">${metaParts.join(' · ')}</div>
         </div>
         <div class="combo-stats">
@@ -465,6 +471,7 @@ async function deleteCombo(cid){
 }
 
 document.getElementById('add-combo-btn').addEventListener('click', async () => {
+  const numeroInput = document.getElementById('c-numero');
   const nameInput = document.getElementById('c-name');
   const costInput = document.getElementById('c-cost');
   const currencyInput = document.getElementById('c-currency');
@@ -480,7 +487,11 @@ document.getElementById('add-combo-btn').addEventListener('click', async () => {
   }
   errorEl.style.display = 'none';
 
+  const numeroRaw = numeroInput.value.trim();
+  const numero = numeroRaw === '' ? null : parseInt(numeroRaw, 10);
+
   const { error } = await db.from('COMPRAS').insert({
+    numero: numero !== null && !isNaN(numero) ? numero : null,
     nombre: name,
     costo: cost,
     moneda: currencyInput.value,
@@ -494,6 +505,7 @@ document.getElementById('add-combo-btn').addEventListener('click', async () => {
     return;
   }
 
+  numeroInput.value = '';
   nameInput.value = '';
   costInput.value = '';
   rateInput.value = '';
