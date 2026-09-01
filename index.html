@@ -500,15 +500,29 @@ document.getElementById('add-combo-btn').addEventListener('click', async () => {
 
   const numeroRaw = numeroInput.value.trim();
   const numero = numeroRaw === '' ? null : parseInt(numeroRaw, 10);
+  const numeroValue = numero !== null && !isNaN(numero) ? numero : null;
 
-  const { error } = await db.from('COMPRAS').insert({
-    numero: numero !== null && !isNaN(numero) ? numero : null,
+  let { error } = await db.from('COMPRAS').insert({
+    numero: numeroValue,
     nombre: name,
     costo: cost,
     moneda: currencyInput.value,
     tipo_cambio: parseFloat(rateInput.value) || 0,
     impuesto: parseFloat(taxInput.value) || 0
   });
+
+  if(error && String(error.message || '').toLowerCase().includes('numero')){
+    // La columna "numero" todavía no existe en la tabla: reintentamos sin ella
+    // para no bloquear el guardado de la compra.
+    const retry = await db.from('COMPRAS').insert({
+      nombre: name,
+      costo: cost,
+      moneda: currencyInput.value,
+      tipo_cambio: parseFloat(rateInput.value) || 0,
+      impuesto: parseFloat(taxInput.value) || 0
+    });
+    error = retry.error;
+  }
 
   if(error){
     console.error(error);
