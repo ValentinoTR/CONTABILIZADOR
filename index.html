@@ -111,9 +111,15 @@
   button.ghost:hover{color:var(--gold);border-color:var(--gold);}
   .error{color:var(--loss);font-size:12px;margin-top:-6px;margin-bottom:10px;display:none;}
 
+  .combo-item{display:flex;align-items:flex-start;gap:12px;margin-bottom:16px;}
+  .combo-badge{
+    width:30px;height:30px;border-radius:50%;border:2px solid var(--gold);color:var(--gold);
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:18px;
+    font-family:'JetBrains Mono',monospace;font-weight:600;font-size:13px;
+  }
   .combo{
     background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
-    padding:18px 20px;margin-bottom:16px;
+    padding:18px 20px;margin-bottom:0;flex:1;min-width:0;
   }
   .combo-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:6px;}
   .combo-name{font-family:'Fraunces',serif;font-weight:500;font-size:16px;}
@@ -201,10 +207,6 @@
     <h2>Nueva compra</h2>
     <div class="hint">Registra el total que pagaron (por un producto o un combo completo). Si pagaron en dólares, pon el tipo de cambio de ese día. Si les cobraron impuesto por traerlo, pon el % aquí y se suma al costo real.</div>
     <div class="form-row">
-      <div class="field" style="max-width:90px;">
-        <label for="c-numero">N°</label>
-        <input type="number" id="c-numero" placeholder="Ej: 1" step="1" min="0">
-      </div>
       <div class="field" style="flex:2;">
         <label for="c-name">Nombre de la compra</label>
         <input type="text" id="c-name" placeholder="Ej: Combo Ryzen 7 + B850 + RAM 32GB">
@@ -264,22 +266,10 @@ async function loadFromSupabase(){
   try{
     setStatus('Sincronizando con Supabase...');
 
-    let { data: compras, error: comprasError } = await db
+    const { data: compras, error: comprasError } = await db
       .from('COMPRAS')
       .select('*')
-      .order('numero', { ascending: true, nullsFirst: false })
-      .order('created_at', { ascending: false });
-
-    if(comprasError){
-      // Si la columna "numero" todavía no existe en la tabla, reintentamos sin ordenar por ella
-      // para no perder la visualización de las compras ya guardadas.
-      const retry = await db
-        .from('COMPRAS')
-        .select('*')
-        .order('created_at', { ascending: false });
-      compras = retry.data;
-      comprasError = retry.error;
-    }
+      .order('created_at', { ascending: true });
     if(comprasError) throw comprasError;
 
     const { data: componentes, error: componentesError } = await db
@@ -289,7 +279,6 @@ async function loadFromSupabase(){
 
     combos = (compras || []).map(c => ({
       id: String(c.id),
-      numero: c.numero === null || c.numero === undefined ? null : Number(c.numero),
       name: c.nombre,
       cost: Number(c.costo || 0),
       currency: c.moneda || 'PEN',
@@ -355,7 +344,7 @@ function render(){
     return;
   }
 
-  container.innerHTML = combos.map(c => {
+  container.innerHTML = combos.map((c, idx) => {
     const costSoles = realCostSoles(c);
     const recuperadoCombo = c.components.reduce((s,comp) => s + (comp.sale !== null ? comp.sale : 0), 0);
     const gananciaCombo = recuperadoCombo - costSoles;
@@ -381,29 +370,32 @@ function render(){
       `).join('');
 
     return `
-    <div class="combo" data-cid="${c.id}">
-      <div class="combo-head">
-        <div>
-          <div class="combo-name">${c.numero !== null ? `<span style="color:var(--gold);">N° ${c.numero}</span> — ` : ''}${escapeHtml(c.name)}</div>
-          <div class="combo-meta">${metaParts.join(' · ')}</div>
-        </div>
-        <div class="combo-stats">
-          <div class="combo-stat">
-            <div class="combo-stat-label">Recuperado</div>
-            <div class="combo-stat-value">${fmt(recuperadoCombo)}</div>
+    <div class="combo-item">
+      <div class="combo-badge">${idx + 1}</div>
+      <div class="combo" data-cid="${c.id}">
+        <div class="combo-head">
+          <div>
+            <div class="combo-name">${escapeHtml(c.name)}</div>
+            <div class="combo-meta">${metaParts.join(' · ')}</div>
           </div>
-          <div class="combo-stat">
-            <div class="combo-stat-label">Ganancia</div>
-            <div class="combo-stat-value ${gananciaCombo >= 0 ? 'gain' : 'loss'}">${gananciaCombo >= 0 ? '+' : ''}${fmt(gananciaCombo)}</div>
+          <div class="combo-stats">
+            <div class="combo-stat">
+              <div class="combo-stat-label">Recuperado</div>
+              <div class="combo-stat-value">${fmt(recuperadoCombo)}</div>
+            </div>
+            <div class="combo-stat">
+              <div class="combo-stat-label">Ganancia</div>
+              <div class="combo-stat-value ${gananciaCombo >= 0 ? 'gain' : 'loss'}">${gananciaCombo >= 0 ? '+' : ''}${fmt(gananciaCombo)}</div>
+            </div>
+            <button class="del-combo" data-cid="${c.id}" aria-label="Eliminar compra">×</button>
           </div>
-          <button class="del-combo" data-cid="${c.id}" aria-label="Eliminar compra">×</button>
         </div>
-      </div>
-      <div class="components">${compsHtml}</div>
-      <div class="add-comp">
-        <input type="text" class="ac-name" placeholder="Nombre del componente" data-cid="${c.id}">
-        <input type="number" class="ac-sale" placeholder="Precio de venta (opcional)" step="0.01" min="0" data-cid="${c.id}">
-        <button class="ghost ac-add" data-cid="${c.id}">Agregar</button>
+        <div class="components">${compsHtml}</div>
+        <div class="add-comp">
+          <input type="text" class="ac-name" placeholder="Nombre del componente" data-cid="${c.id}">
+          <input type="number" class="ac-sale" placeholder="Precio de venta (opcional)" step="0.01" min="0" data-cid="${c.id}">
+          <button class="ghost ac-add" data-cid="${c.id}">Agregar</button>
+        </div>
       </div>
     </div>`;
   }).join('');
@@ -482,7 +474,6 @@ async function deleteCombo(cid){
 }
 
 document.getElementById('add-combo-btn').addEventListener('click', async () => {
-  const numeroInput = document.getElementById('c-numero');
   const nameInput = document.getElementById('c-name');
   const costInput = document.getElementById('c-cost');
   const currencyInput = document.getElementById('c-currency');
@@ -498,12 +489,7 @@ document.getElementById('add-combo-btn').addEventListener('click', async () => {
   }
   errorEl.style.display = 'none';
 
-  const numeroRaw = numeroInput.value.trim();
-  const numero = numeroRaw === '' ? null : parseInt(numeroRaw, 10);
-  const numeroValue = numero !== null && !isNaN(numero) ? numero : null;
-
-  let { error } = await db.from('COMPRAS').insert({
-    numero: numeroValue,
+  const { error } = await db.from('COMPRAS').insert({
     nombre: name,
     costo: cost,
     moneda: currencyInput.value,
@@ -511,26 +497,12 @@ document.getElementById('add-combo-btn').addEventListener('click', async () => {
     impuesto: parseFloat(taxInput.value) || 0
   });
 
-  if(error && String(error.message || '').toLowerCase().includes('numero')){
-    // La columna "numero" todavía no existe en la tabla: reintentamos sin ella
-    // para no bloquear el guardado de la compra.
-    const retry = await db.from('COMPRAS').insert({
-      nombre: name,
-      costo: cost,
-      moneda: currencyInput.value,
-      tipo_cambio: parseFloat(rateInput.value) || 0,
-      impuesto: parseFloat(taxInput.value) || 0
-    });
-    error = retry.error;
-  }
-
   if(error){
     console.error(error);
     setStatus('Error al guardar compra: ' + error.message, true);
     return;
   }
 
-  numeroInput.value = '';
   nameInput.value = '';
   costInput.value = '';
   rateInput.value = '';
