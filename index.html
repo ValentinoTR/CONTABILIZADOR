@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>CONTABILIZADOR AO NEXUS</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500&display=swap" rel="stylesheet">
@@ -19,50 +20,98 @@
     --loss:#c96b4a;
     --loss-dim:#4a3324;
     --gold:#c9a15a;
+    --blue:#6a9bc9;
     --radius:10px;
+    --sidebar-w:212px;
   }
   *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
   body{
-    margin:0;
     background:var(--bg);
     color:var(--text);
     font-family:'Inter',sans-serif;
-    padding:32px 20px 60px;
   }
-  .wrap{max-width:860px;margin:0 auto;}
+  a{color:inherit;}
+  .topbar{padding:20px 24px 0;}
   .title{
     font-family:'Fraunces',serif;
     font-weight:700;
-    font-size:26px;
+    font-size:24px;
     letter-spacing:0.01em;
     margin:0 0 4px;
   }
-  .subtitle{color:var(--text-muted);font-size:14px;margin:0 0 12px;}
+  .subtitle{color:var(--text-muted);font-size:13px;margin:0 0 12px;}
   .status-bar{
     font-size:12px;color:var(--text-muted);background:var(--surface-2);
-    border:1px solid var(--border);border-radius:8px;padding:9px 14px;margin-bottom:24px;
+    border:1px solid var(--border);border-radius:8px;padding:9px 14px;margin-bottom:18px;
     display:flex;align-items:center;gap:8px;
   }
   .status-bar.error{color:var(--loss);border-color:var(--loss-dim);}
   .status-dot{width:7px;height:7px;border-radius:50%;background:var(--gain);flex-shrink:0;}
   .status-bar.error .status-dot{background:var(--loss);}
-  .summary{
-    display:grid;
-    grid-template-columns:repeat(4,1fr);
-    gap:12px;
-    margin-bottom:28px;
+  .logout-btn{margin-left:auto;padding:6px 10px;border-radius:6px;border:1px solid var(--border-strong);background:transparent;color:var(--text-muted);cursor:pointer;font-size:12px;display:none;}
+  .logout-btn:hover{color:var(--gold);border-color:var(--gold);}
+
+  /* ---- Auth screen ---- */
+  #auth-screen{max-width:420px;margin:60px auto 0;padding:0 20px;}
+  .auth-panel{
+    background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+    padding:20px;margin-bottom:20px;
+  }
+  .auth-panel h2{font-family:'Fraunces',serif;font-weight:500;font-size:17px;margin:0 0 12px;}
+  .auth-actions{display:flex;flex-direction:column;gap:12px;}
+  .auth-actions button{align-self:stretch;}
+  .auth-error{color:var(--loss);font-size:12px;margin-top:10px;display:none;}
+
+  /* ---- App shell / sidebar ---- */
+  .app-shell{display:flex;align-items:flex-start;}
+  .sidebar{
+    width:var(--sidebar-w);flex-shrink:0;background:var(--surface);
+    border-right:1px solid var(--border);padding:18px 12px 24px;
+    position:sticky;top:0;align-self:stretch;min-height:100vh;
+  }
+  .sidebar-brand{font-family:'Fraunces',serif;font-weight:700;font-size:16px;padding:6px 10px 16px;letter-spacing:0.02em;}
+  .sidebar-brand span{color:var(--gold);}
+  .nav-btn{
+    display:flex;align-items:center;gap:9px;width:100%;text-align:left;
+    background:none;border:none;color:var(--text-muted);font-size:13.5px;
+    padding:9px 10px;border-radius:7px;cursor:pointer;margin-bottom:2px;font-family:'Inter',sans-serif;
+  }
+  .nav-btn:hover{background:var(--surface-2);color:var(--text);}
+  .nav-btn.active{background:var(--surface-2);color:var(--gold);font-weight:500;}
+  .nav-icon{width:18px;text-align:center;flex-shrink:0;}
+
+  .main{flex:1;min-width:0;padding:24px 24px 60px;max-width:1180px;}
+  .view-section{display:none;}
+  .view-section.visible{display:block;}
+  .view-title{font-family:'Fraunces',serif;font-weight:600;font-size:19px;margin:2px 0 16px;}
+
+  /* ---- Metrics ---- */
+  .summary-primary{
+    display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:12px;
+  }
+  .summary-secondary{
+    display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px;
   }
   .metric{
-    background:var(--surface);
-    border:1px solid var(--border);
-    border-radius:var(--radius);
+    background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
     padding:14px 16px;
   }
-  .metric-label{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;}
-  .metric-value{font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:600;}
+  .metric.secondary{padding:11px 14px;}
+  .metric-label{font-size:10.5px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+  .metric-value{font-family:'JetBrains Mono',monospace;font-size:19px;font-weight:600;}
+  .metric.secondary .metric-value{font-size:15px;}
   .metric-value.gain{color:var(--gain);}
   .metric-value.loss{color:var(--loss);}
   .metric-value.gold{color:var(--gold);}
+  .metric-value.blue{color:var(--blue);}
+
+  .charts-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:22px;}
+  .chart-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;}
+  .chart-panel h3{font-family:'Fraunces',serif;font-weight:500;font-size:14px;margin:0 0 10px;color:var(--text);}
+  .chart-panel canvas{width:100%;height:150px;display:block;}
+  .chart-empty{color:var(--text-muted);font-size:12.5px;text-align:center;padding:40px 0;}
+
   .panel{
     background:var(--surface);
     border:1px solid var(--border);
@@ -73,7 +122,7 @@
   .panel h2{
     font-family:'Fraunces',serif;
     font-weight:500;
-    font-size:17px;
+    font-size:16px;
     margin:0 0 4px;
   }
   .panel .hint{font-size:12px;color:var(--text-muted);margin:0 0 16px;}
@@ -109,7 +158,15 @@
     background:var(--surface-2);color:var(--text-muted);font-size:13px;cursor:pointer;
   }
   button.ghost:hover{color:var(--gold);border-color:var(--gold);}
+  button.ghost.small{padding:5px 9px;font-size:12px;}
   .error{color:var(--loss);font-size:12px;margin-top:-6px;margin-bottom:10px;display:none;}
+
+  .costo-real-preview{
+    background:var(--surface-2);border:1px dashed var(--border-strong);border-radius:8px;
+    padding:10px 14px;margin-bottom:14px;font-family:'JetBrains Mono',monospace;font-size:14px;
+    display:flex;justify-content:space-between;align-items:center;
+  }
+  .costo-real-preview span.lbl{font-family:'Inter',sans-serif;font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;}
 
   .combo-item{display:flex;align-items:flex-start;gap:12px;margin-bottom:16px;}
   .combo-badge{
@@ -121,53 +178,86 @@
     background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
     padding:18px 20px;margin-bottom:0;flex:1;min-width:0;
   }
-  .combo-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:6px;}
+  .combo-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:6px;flex-wrap:wrap;}
   .combo-name{font-family:'Fraunces',serif;font-weight:500;font-size:16px;}
   .combo-meta{font-size:12px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;margin-top:4px;line-height:1.6;}
+  .combo-tag{display:inline-block;background:var(--surface-2);border:1px solid var(--border-strong);color:var(--text-muted);border-radius:20px;padding:1px 9px;font-size:11px;font-family:'Inter',sans-serif;margin-right:6px;}
   .combo-stats{display:flex;gap:16px;align-items:center;flex-shrink:0;}
   .combo-stat{text-align:right;}
   .combo-stat-label{font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;}
   .combo-stat-value{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:600;}
   .combo-stat-value.gain{color:var(--gain);}
   .combo-stat-value.loss{color:var(--loss);}
+  .combo-stat-sub{font-size:10.5px;color:var(--text-muted);margin-top:1px;}
 
   .components{border-top:1px solid var(--border);padding-top:10px;margin-top:14px;}
+  .components-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;}
   .comp-row{
-    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap;
     padding:8px 0;border-bottom:1px solid var(--border);
   }
-  .comp-name{font-size:14px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .comp-sale-input{width:110px;padding:6px 8px;font-size:13px;}
+  .comp-name{font-size:14px;flex:1 1 140px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .comp-inline-field{display:flex;align-items:center;gap:5px;}
+  .comp-inline-field span{font-size:11px;color:var(--text-muted);white-space:nowrap;}
+  .comp-sale-input,.comp-costo-input{width:100px;padding:6px 8px;font-size:13px;}
+  .comp-margin{font-size:11px;color:var(--text-muted);min-width:56px;text-align:right;}
   .comp-del{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:16px;padding:0 4px;}
   .comp-del:hover{color:var(--loss);}
 
-  .add-comp{display:flex;gap:8px;margin-top:10px;}
+  .add-comp{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
   .add-comp input{font-size:13px;padding:7px 9px;}
-  .add-comp .ac-name{flex:2;}
-  .add-comp .ac-sale{flex:1;}
+  .add-comp .ac-name{flex:2;min-width:140px;}
+  .add-comp .ac-costo,.add-comp .ac-sale{flex:1;min-width:90px;}
 
   .del-combo{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:16px;padding:0 4px;flex-shrink:0;}
   .del-combo:hover{color:var(--loss);}
 
   .empty{color:var(--text-muted);font-size:14px;padding:20px 4px;text-align:center;}
 
-  .auth-panel{
-    background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
-    padding:20px;margin-bottom:20px;
+  /* ---- Tables (inventario / historial) ---- */
+  .table-wrap{overflow-x:auto;}
+  table.data-table{width:100%;border-collapse:collapse;font-size:13.5px;}
+  table.data-table th{
+    text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;
+    color:var(--text-muted);border-bottom:1px solid var(--border-strong);padding:8px 10px;white-space:nowrap;
   }
-  .auth-panel h2{font-family:'Fraunces',serif;font-weight:500;font-size:17px;margin:0 0 12px;}
-  .auth-actions{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;}
-  .auth-error{color:var(--loss);font-size:12px;margin-top:10px;display:none;}
-  .logout-btn{margin-left:auto;padding:6px 10px;border-radius:6px;border:1px solid var(--border-strong);background:transparent;color:var(--text-muted);cursor:pointer;font-size:12px;display:none;}
-  .logout-btn:hover{color:var(--gold);border-color:var(--gold);}
+  table.data-table td{padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:middle;}
+  table.data-table tr:last-child td{border-bottom:none;}
+  .badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:500;}
+  .badge.vendido{background:var(--gain-dim);color:var(--gain);}
+  .badge.pendiente{background:var(--surface-2);color:var(--text-muted);border:1px solid var(--border-strong);}
+  .cell-num{font-family:'JetBrains Mono',monospace;}
+  .row-actions{display:flex;gap:6px;flex-wrap:nowrap;}
+
+  .filters-row{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;}
+  .filters-row .field{min-width:150px;flex:1;}
+
+  .security-note{font-size:12.5px;color:var(--text-muted);line-height:1.6;}
+  .security-note code{background:var(--surface-2);padding:1px 5px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:12px;}
+
+  @media (max-width:860px){
+    .summary-primary,.summary-secondary{grid-template-columns:repeat(2,1fr);}
+    .charts-row{grid-template-columns:1fr;}
+    .app-shell{flex-direction:column;}
+    .sidebar{
+      width:100%;min-height:auto;position:static;border-right:none;border-bottom:1px solid var(--border);
+      display:flex;overflow-x:auto;padding:10px 12px;gap:2px;
+    }
+    .sidebar-brand{display:none;}
+    .nav-btn{width:auto;white-space:nowrap;margin-bottom:0;}
+    .main{padding:18px 16px 50px;}
+  }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <div class="title">CONTABILIZADOR AO NEXUS</div>
-  <div class="subtitle">Compras, tipo de cambio, impuesto de importación y ventas por componente</div>
-  <div class="status-bar" id="sync-status"><div class="status-dot"></div><span id="sync-status-text">Conectando con Supabase...</span><button class="logout-btn" id="logout-btn">Cerrar sesión</button></div>
 
+<div class="topbar">
+  <div class="title">CONTABILIZADOR AO NEXUS</div>
+  <div class="subtitle">Compras, inventario, ventas y ganancias por componente</div>
+  <div class="status-bar" id="sync-status"><div class="status-dot"></div><span id="sync-status-text">Conectando con Supabase...</span><button class="logout-btn" id="logout-btn">Cerrar sesión</button></div>
+</div>
+
+<div id="auth-screen">
   <div class="auth-panel" id="auth-panel">
     <h2>Iniciar sesión</h2>
     <div class="auth-actions">
@@ -183,61 +273,251 @@
     </div>
     <div class="auth-error" id="auth-error"></div>
   </div>
+</div>
 
-  <div class="summary" id="summary-section" style="display:none;">
-    <div class="metric">
-      <div class="metric-label">Invertido (c/ impuesto)</div>
-      <div class="metric-value gold" id="m-invertido">S/ 0</div>
-    </div>
-    <div class="metric">
-      <div class="metric-label">Recuperado</div>
-      <div class="metric-value" id="m-recuperado">S/ 0</div>
-    </div>
-    <div class="metric">
-      <div class="metric-label">Ganancia</div>
-      <div class="metric-value gain" id="m-ganancia">S/ 0</div>
-    </div>
-    <div class="metric">
-      <div class="metric-label">Pendientes</div>
-      <div class="metric-value" id="m-pendientes">0</div>
-    </div>
-  </div>
+<div class="app-shell" id="app-shell" style="display:none;">
+  <nav class="sidebar">
+    <div class="sidebar-brand">AO <span>NEXUS</span></div>
+    <button class="nav-btn active" data-view="dashboard"><span class="nav-icon">📊</span> Dashboard</button>
+    <button class="nav-btn" data-view="compras"><span class="nav-icon">🛒</span> Compras</button>
+    <button class="nav-btn" data-view="inventario"><span class="nav-icon">📦</span> Inventario</button>
+    <button class="nav-btn" data-view="historial"><span class="nav-icon">📋</span> Historial</button>
+    <button class="nav-btn" data-view="ajustes"><span class="nav-icon">⚙</span> Ajustes</button>
+  </nav>
 
-  <div class="panel" id="purchase-panel" style="display:none;">
-    <h2>Nueva compra</h2>
-    <div class="hint">Registra el total que pagaron (por un producto o un combo completo). Si pagaron en dólares, pon el tipo de cambio de ese día. Si les cobraron impuesto por traerlo, pon el % aquí y se suma al costo real.</div>
-    <div class="form-row">
-      <div class="field" style="flex:2;">
-        <label for="c-name">Nombre de la compra</label>
-        <input type="text" id="c-name" placeholder="Ej: Combo Ryzen 7 + B850 + RAM 32GB">
-      </div>
-      <div class="field">
-        <label for="c-cost">Costo del producto</label>
-        <input type="number" id="c-cost" placeholder="0.00" step="0.01" min="0">
-      </div>
-      <div class="field" style="max-width:90px;">
-        <label for="c-currency">Moneda</label>
-        <select id="c-currency">
-          <option value="PEN">S/</option>
-          <option value="USD">$</option>
-        </select>
-      </div>
-    </div>
-    <div class="form-row">
-      <div class="field">
-        <label for="c-rate">Tipo de cambio del día (si fue en $)</label>
-        <input type="number" id="c-rate" placeholder="Ej: 3.75" step="0.001" min="0">
-      </div>
-      <div class="field">
-        <label for="c-tax">Impuesto de importación (%)</label>
-        <input type="number" id="c-tax" placeholder="Ej: 18" step="0.01" min="0">
-      </div>
-    </div>
-    <div class="error" id="form-error">Ingresa el nombre y el costo de la compra.</div>
-    <button class="submit full" id="add-combo-btn">Agregar compra</button>
-  </div>
+  <main class="main">
 
-  <div id="combos-container" style="display:none;"></div>
+    <!-- ===================== DASHBOARD ===================== -->
+    <section class="view-section visible" data-view="dashboard">
+      <div class="view-title">Resumen general</div>
+
+      <div class="summary-primary">
+        <div class="metric">
+          <div class="metric-label">💰 Capital invertido</div>
+          <div class="metric-value gold" id="m-invertido">S/ 0</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">💵 Capital recuperado</div>
+          <div class="metric-value blue" id="m-recuperado">S/ 0</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">📈 Ganancia real</div>
+          <div class="metric-value gain" id="m-ganancia">S/ 0</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">📦 Stock pendiente</div>
+          <div class="metric-value" id="m-stock-pendiente">S/ 0</div>
+        </div>
+      </div>
+
+      <div class="summary-secondary">
+        <div class="metric secondary">
+          <div class="metric-label">Ventas este mes</div>
+          <div class="metric-value" id="m-ventas-mes">S/ 0</div>
+        </div>
+        <div class="metric secondary">
+          <div class="metric-label">Ganancia este mes</div>
+          <div class="metric-value gain" id="m-ganancia-mes">S/ 0</div>
+        </div>
+        <div class="metric secondary">
+          <div class="metric-label">Productos vendidos (mes)</div>
+          <div class="metric-value" id="m-vendidos-mes">0</div>
+        </div>
+        <div class="metric secondary">
+          <div class="metric-label">Productos pendientes</div>
+          <div class="metric-value" id="m-pendientes-total">0</div>
+        </div>
+      </div>
+
+      <div class="charts-row">
+        <div class="chart-panel">
+          <h3>Ventas por mes</h3>
+          <canvas id="chart-ventas" height="150"></canvas>
+        </div>
+        <div class="chart-panel">
+          <h3>Ganancia mensual</h3>
+          <canvas id="chart-ganancia" height="150"></canvas>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-bottom:0;">
+        <h2>Últimas ventas</h2>
+        <div class="table-wrap">
+          <table class="data-table" id="tabla-ultimas-ventas">
+            <thead><tr><th>Producto</th><th>Venta</th><th>Ganancia</th><th>Fecha</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== COMPRAS ===================== -->
+    <section class="view-section" data-view="compras">
+      <div class="view-title">Compras</div>
+
+      <div class="panel" id="purchase-panel">
+        <h2>Nueva compra</h2>
+        <div class="hint">Registra el total que pagaron (por un producto o un combo completo). Completa lo demás solo si aplica: el costo real se calcula solo.</div>
+        <div class="form-row">
+          <div class="field" style="flex:2;">
+            <label for="c-name">Nombre de la compra</label>
+            <input type="text" id="c-name" placeholder="Ej: Combo Ryzen 7 + B850 + RAM 32GB">
+          </div>
+          <div class="field">
+            <label for="c-cost">Costo del producto</label>
+            <input type="number" id="c-cost" placeholder="0.00" step="0.01" min="0">
+          </div>
+          <div class="field" style="max-width:90px;">
+            <label for="c-currency">Moneda</label>
+            <select id="c-currency">
+              <option value="PEN">S/</option>
+              <option value="USD">$</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="field">
+            <label for="c-rate">Tipo de cambio del día (si fue en $)</label>
+            <input type="number" id="c-rate" placeholder="Ej: 3.75" step="0.001" min="0">
+          </div>
+          <div class="field">
+            <label for="c-tax">Impuesto de importación (%)</label>
+            <input type="number" id="c-tax" placeholder="Ej: 18" step="0.01" min="0">
+          </div>
+          <div class="field">
+            <label for="c-categoria">Categoría</label>
+            <select id="c-categoria">
+              <option value="">— Sin categoría —</option>
+              <option>Procesador</option>
+              <option>Placa madre</option>
+              <option>RAM</option>
+              <option>Almacenamiento</option>
+              <option>Fuente de poder</option>
+              <option>Refrigeración</option>
+              <option>Gabinete</option>
+              <option>Periféricos</option>
+              <option>Otros</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="field">
+            <label for="c-proveedor">Proveedor</label>
+            <input type="text" id="c-proveedor" placeholder="Ej: Amazon, AliExpress...">
+          </div>
+          <div class="field">
+            <label for="c-fecha">Fecha de compra</label>
+            <input type="date" id="c-fecha">
+          </div>
+          <div class="field">
+            <label for="c-pedido">N.º de pedido</label>
+            <input type="text" id="c-pedido" placeholder="Opcional">
+          </div>
+          <div class="field">
+            <label for="c-courier">Courier</label>
+            <input type="text" id="c-courier" placeholder="Ej: DHL, USPS...">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="field">
+            <label for="c-peso">Peso (kg)</label>
+            <input type="number" id="c-peso" placeholder="0.00" step="0.01" min="0">
+          </div>
+          <div class="field">
+            <label for="c-envio-kg">Costo de envío por kg</label>
+            <input type="number" id="c-envio-kg" placeholder="0.00" step="0.01" min="0">
+          </div>
+          <div class="field">
+            <label for="c-tax-usa">Tax USA (S/)</label>
+            <input type="number" id="c-tax-usa" placeholder="0.00" step="0.01" min="0">
+          </div>
+          <div class="field">
+            <label for="c-imp-peru">Impuesto Perú (S/)</label>
+            <input type="number" id="c-imp-peru" placeholder="0.00" step="0.01" min="0">
+          </div>
+          <div class="field">
+            <label for="c-otros">Otros gastos (S/)</label>
+            <input type="number" id="c-otros" placeholder="0.00" step="0.01" min="0">
+          </div>
+        </div>
+
+        <div class="costo-real-preview">
+          <span class="lbl">Costo real estimado</span>
+          <span id="c-costo-real-preview">S/ 0.00</span>
+        </div>
+
+        <div class="error" id="form-error">Ingresa el nombre y el costo de la compra.</div>
+        <button class="submit full" id="add-combo-btn">Agregar compra</button>
+      </div>
+
+      <div id="combos-container"></div>
+    </section>
+
+    <!-- ===================== INVENTARIO ===================== -->
+    <section class="view-section" data-view="inventario">
+      <div class="view-title">Inventario (stock pendiente)</div>
+      <div class="panel" style="margin-bottom:0;">
+        <div class="hint" style="margin-bottom:14px;">Componentes que ya compraste pero todavía no vendes, agrupados por nombre. El costo real se reparte automáticamente entre los componentes de cada compra cuando no lo defines a mano.</div>
+        <div class="table-wrap">
+          <table class="data-table" id="tabla-inventario">
+            <thead><tr><th>Producto</th><th>Costo real</th><th>Venta sugerida</th><th>Stock</th><th>Ganancia proyectada</th><th></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== HISTORIAL ===================== -->
+    <section class="view-section" data-view="historial">
+      <div class="view-title">Historial</div>
+      <div class="panel" style="margin-bottom:0;">
+        <div class="filters-row">
+          <div class="field" style="flex:2;min-width:200px;">
+            <label for="h-search">🔎 Buscar</label>
+            <input type="text" id="h-search" placeholder="Ej: 9800X3D">
+          </div>
+          <div class="field">
+            <label for="h-estado">Estado</label>
+            <select id="h-estado">
+              <option value="">Todos</option>
+              <option value="vendido">Vendido</option>
+              <option value="pendiente">Pendiente</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="h-proveedor">Proveedor</label>
+            <select id="h-proveedor"><option value="">Todos</option></select>
+          </div>
+          <div class="field">
+            <label for="h-categoria">Categoría</label>
+            <select id="h-categoria"><option value="">Todas</option></select>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table" id="tabla-historial">
+            <thead><tr><th>Fecha</th><th>Producto</th><th>Compra</th><th>Proveedor</th><th>Categoría</th><th>Costo</th><th>Venta</th><th>Ganancia</th><th>Margen</th><th>Estado</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== AJUSTES ===================== -->
+    <section class="view-section" data-view="ajustes">
+      <div class="view-title">Ajustes</div>
+      <div class="panel">
+        <h2>Seguridad de datos</h2>
+        <div class="security-note">
+          Esta app usa una <code>publishable key</code> de Supabase en el frontend, lo cual está bien siempre que las tablas <code>COMPRAS</code> y <code>COMPONENTES</code> tengan <strong>Row Level Security (RLS)</strong> activado con políticas que solo permitan leer/escribir a usuarios autenticados (o al dueño de los datos). La protección real de tus números depende de esas políticas en Supabase, no de que el formulario esté oculto antes de iniciar sesión — revisa esto directamente en el panel de Supabase → Authentication/Table Editor → Policies.
+        </div>
+      </div>
+      <div class="panel" style="margin-bottom:0;">
+        <h2>Cuenta</h2>
+        <div class="hint">Cierra sesión desde el botón de arriba, junto al estado de sincronización.</div>
+      </div>
+    </section>
+
+  </main>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -248,20 +528,43 @@ const db = supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
 let combos = [];
 let pollTimer = null;
+let currentView = 'dashboard';
 
+/* ---------------- utilidades de formato ---------------- */
+function fmt(n){
+  return 'S/ ' + Number(n||0).toLocaleString('es-PE', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+function fmtOriginal(n, currency){
+  const symbol = currency === 'USD' ? '$' : 'S/';
+  return symbol + ' ' + Number(n||0).toLocaleString('es-PE', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+function fmtPct(n){
+  if(n===null || n===undefined || !isFinite(n)) return '—';
+  return (n>=0?'+':'') + n.toFixed(1) + '%';
+}
+function escapeHtml(str){
+  const d = document.createElement('div');
+  d.textContent = str == null ? '' : String(str);
+  return d.innerHTML;
+}
+function todayISO(){
+  return new Date().toISOString().slice(0,10);
+}
+function num(v){ const n = Number(v); return isNaN(n) ? 0 : n; }
+
+/* ---------------- estado de sincronización ---------------- */
 function setStatus(text, isError){
   document.getElementById('sync-status-text').textContent = text;
   document.getElementById('sync-status').className = 'status-bar' + (isError ? ' error' : '');
 }
 
 function setAppVisible(visible){
-  document.getElementById('auth-panel').style.display = visible ? 'none' : 'block';
-  document.getElementById('summary-section').style.display = visible ? 'grid' : 'none';
-  document.getElementById('purchase-panel').style.display = visible ? 'block' : 'none';
-  document.getElementById('combos-container').style.display = visible ? 'block' : 'none';
+  document.getElementById('auth-screen').style.display = visible ? 'none' : 'block';
+  document.getElementById('app-shell').style.display = visible ? 'flex' : 'none';
   document.getElementById('logout-btn').style.display = visible ? 'block' : 'none';
 }
 
+/* ---------------- carga desde Supabase ---------------- */
 async function loadFromSupabase(){
   try{
     setStatus('Sincronizando con Supabase...');
@@ -284,60 +587,118 @@ async function loadFromSupabase(){
       currency: c.moneda || 'PEN',
       rate: Number(c.tipo_cambio || 0),
       tax: Number(c.impuesto || 0),
+      createdAt: c.created_at || null,
+      proveedor: c.proveedor || '',
+      fechaCompra: c.fecha_compra || null,
+      numeroPedido: c.numero_pedido || '',
+      courier: c.courier || '',
+      pesoKg: Number(c.peso_kg || 0),
+      envioKg: Number(c.costo_envio_kg || 0),
+      taxUsa: Number(c.tax_usa || 0),
+      impPeru: Number(c.impuesto_peru || 0),
+      otros: Number(c.otros_gastos || 0),
+      categoria: c.categoria || '',
       components: (componentes || [])
         .filter(comp => String(comp.compra_id) === String(c.id))
         .map(comp => ({
           id: String(comp.id),
           name: comp.nombre,
-          sale: comp.precio_venta === null ? null : Number(comp.precio_venta)
+          sale: comp.precio_venta === null || comp.precio_venta === undefined ? null : Number(comp.precio_venta),
+          costo: comp.costo === null || comp.costo === undefined ? null : Number(comp.costo),
+          sugerido: comp.precio_sugerido === null || comp.precio_sugerido === undefined ? null : Number(comp.precio_sugerido),
+          fechaVenta: comp.fecha_venta || null
         }))
     }));
 
     setStatus('Sincronizado · ' + new Date().toLocaleTimeString('es-PE'));
-    render();
+    renderAll();
   }catch(e){
     console.error(e);
     setStatus('No se pudo cargar Supabase: ' + (e.message || 'error desconocido'), true);
   }
 }
 
-function fmt(n){
-  return 'S/ ' + Number(n).toLocaleString('es-PE', {minimumFractionDigits:2, maximumFractionDigits:2});
-}
-function fmtOriginal(n, currency){
-  const symbol = currency === 'USD' ? '$' : 'S/';
-  return symbol + ' ' + Number(n).toLocaleString('es-PE', {minimumFractionDigits:2, maximumFractionDigits:2});
-}
+/* ---------------- cálculos centrales ---------------- */
 function realCostSoles(combo){
   const rate = combo.currency === 'USD' ? (combo.rate || 0) : 1;
   const base = combo.currency === 'USD' ? combo.cost * rate : combo.cost;
-  const tax = combo.tax || 0;
-  return base * (1 + tax / 100);
-}
-function escapeHtml(str){
-  const d = document.createElement('div');
-  d.textContent = str;
-  return d.innerHTML;
+  const baseConTax = base * (1 + (combo.tax || 0) / 100);
+  const envioTotal = (combo.pesoKg || 0) * (combo.envioKg || 0);
+  return baseConTax + envioTotal + (combo.taxUsa || 0) + (combo.impPeru || 0) + (combo.otros || 0);
 }
 
-function render(){
-  let invertido = 0, recuperado = 0, pendientes = 0;
-  combos.forEach(c => {
-    invertido += realCostSoles(c);
-    c.components.forEach(comp => {
-      if(comp.sale !== null) recuperado += comp.sale;
-      else pendientes += 1;
-    });
+// Reparte el costo real del combo entre sus componentes: respeta los costos
+// puestos a mano y reparte el resto en partes iguales entre los demás.
+function comboDerived(combo){
+  const costoReal = realCostSoles(combo);
+  const comps = combo.components;
+  const explicit = comps.filter(c => c.costo !== null);
+  const sumExplicit = explicit.reduce((s,c) => s + c.costo, 0);
+  const implicitCount = comps.length - explicit.length;
+  const implicitShare = implicitCount > 0 ? Math.max(costoReal - sumExplicit, 0) / implicitCount : 0;
+
+  const derivedComps = comps.map(c => {
+    const costoFinal = c.costo !== null ? c.costo : (comps.length === 0 ? 0 : implicitShare);
+    const ganancia = c.sale !== null ? c.sale - costoFinal : null;
+    const margen = (c.sale !== null && c.sale !== 0) ? (ganancia / c.sale) * 100 : null;
+    return Object.assign({}, c, { costoFinal, ganancia, margen });
   });
 
-  document.getElementById('m-invertido').textContent = fmt(invertido);
-  document.getElementById('m-recuperado').textContent = fmt(recuperado);
-  const gEl = document.getElementById('m-ganancia');
-  const gananciaTotal = recuperado - invertido;
-  gEl.textContent = fmt(gananciaTotal);
-  gEl.className = 'metric-value ' + (gananciaTotal >= 0 ? 'gain' : 'loss');
-  document.getElementById('m-pendientes').textContent = pendientes;
+  const recuperado = derivedComps.reduce((s,c) => s + (c.sale !== null ? c.sale : 0), 0);
+  const ganancia = recuperado - costoReal;
 
+  return { costoReal, comps: derivedComps, recuperado, ganancia };
+}
+
+function getAllComponentsFlat(){
+  const rows = [];
+  combos.forEach(combo => {
+    const der = comboDerived(combo);
+    const fecha = combo.fechaCompra || (combo.createdAt ? combo.createdAt.slice(0,10) : null);
+    der.comps.forEach(comp => {
+      rows.push({
+        comboId: combo.id, comboName: combo.name, proveedor: combo.proveedor,
+        categoria: combo.categoria, fecha, name: comp.name,
+        costo: comp.costoFinal, sale: comp.sale, ganancia: comp.ganancia, margen: comp.margen,
+        estado: comp.sale !== null ? 'vendido' : 'pendiente',
+        fechaVenta: comp.fechaVenta
+      });
+    });
+  });
+  return rows;
+}
+
+function monthKeyOf(dateStr){
+  if(!dateStr) return null;
+  const d = new Date(dateStr);
+  if(isNaN(d.getTime())) return null;
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+}
+const MONTH_NAMES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+function monthLabelOf(key){
+  const parts = key.split('-');
+  return MONTH_NAMES[parseInt(parts[1],10)-1];
+}
+function lastNMonthKeys(n){
+  const out = [];
+  const now = new Date();
+  for(let i=n-1;i>=0;i--){
+    const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
+    out.push(d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0'));
+  }
+  return out;
+}
+
+/* ---------------- render principal ---------------- */
+function renderAll(){
+  renderCompras();
+  renderDashboard();
+  renderInventario();
+  renderHistorial();
+}
+
+/* ---------------- vista: Compras ---------------- */
+function renderCompras(){
   const container = document.getElementById('combos-container');
   if(combos.length === 0){
     container.innerHTML = '<div class="empty">Todavía no hay compras registradas. Agrega la primera arriba.</div>';
@@ -345,26 +706,43 @@ function render(){
   }
 
   container.innerHTML = combos.map((c, idx) => {
-    const costSoles = realCostSoles(c);
-    const recuperadoCombo = c.components.reduce((s,comp) => s + (comp.sale !== null ? comp.sale : 0), 0);
-    const gananciaCombo = recuperadoCombo - costSoles;
+    const der = comboDerived(c);
+    const costSoles = der.costoReal;
+    const recuperadoCombo = der.recuperado;
+    const gananciaCombo = der.ganancia;
+    const margenCombo = recuperadoCombo > 0 ? (gananciaCombo / recuperadoCombo) * 100 : null;
 
     let metaParts = [`costo ${fmtOriginal(c.cost, c.currency)}`];
     if(c.currency === 'USD') metaParts.push(`TC ${c.rate || 0}`);
     if(c.tax) metaParts.push(`impuesto ${c.tax}%`);
+    if(c.pesoKg) metaParts.push(`envío ${fmt((c.pesoKg||0)*(c.envioKg||0))}`);
     metaParts.push(`costo real ${fmt(costSoles)}`);
 
-    const compsHtml = c.components.length === 0
+    const tags = [];
+    if(c.proveedor) tags.push(`<span class="combo-tag">🏬 ${escapeHtml(c.proveedor)}</span>`);
+    if(c.fechaCompra) tags.push(`<span class="combo-tag">📅 ${escapeHtml(c.fechaCompra)}</span>`);
+    if(c.categoria) tags.push(`<span class="combo-tag">${escapeHtml(c.categoria)}</span>`);
+    if(c.numeroPedido) tags.push(`<span class="combo-tag">#${escapeHtml(c.numeroPedido)}</span>`);
+    if(c.courier) tags.push(`<span class="combo-tag">🚚 ${escapeHtml(c.courier)}</span>`);
+
+    const compsHtml = der.comps.length === 0
       ? '<div style="color:var(--text-muted);font-size:13px;padding:8px 0;">Aún no agregaste componentes de esta compra.</div>'
-      : c.components.map(comp => `
+      : der.comps.map(comp => `
         <div class="comp-row" data-cid="${c.id}" data-pid="${comp.id}">
           <div class="comp-name">${escapeHtml(comp.name)}</div>
-          <div style="display:flex;align-items:center;gap:6px;">
-            <span style="font-size:12px;color:var(--text-muted);">venta</span>
+          <div class="comp-inline-field">
+            <span>costo</span>
+            <input type="number" class="comp-costo-input" step="0.01" min="0"
+              value="${comp.costo !== null ? comp.costo : ''}" placeholder="${comp.costoFinal.toFixed(2)}"
+              data-cid="${c.id}" data-pid="${comp.id}">
+          </div>
+          <div class="comp-inline-field">
+            <span>venta</span>
             <input type="number" class="comp-sale-input" step="0.01" min="0" placeholder="pendiente"
               value="${comp.sale === null ? '' : comp.sale}"
               data-cid="${c.id}" data-pid="${comp.id}">
           </div>
+          <div class="comp-margin">${comp.sale !== null ? fmtPct(comp.margen) : ''}</div>
           <button class="comp-del" data-cid="${c.id}" data-pid="${comp.id}" aria-label="Eliminar componente">×</button>
         </div>
       `).join('');
@@ -377,6 +755,7 @@ function render(){
           <div>
             <div class="combo-name">${escapeHtml(c.name)}</div>
             <div class="combo-meta">${metaParts.join(' · ')}</div>
+            ${tags.length ? `<div style="margin-top:8px;">${tags.join('')}</div>` : ''}
           </div>
           <div class="combo-stats">
             <div class="combo-stat">
@@ -386,14 +765,21 @@ function render(){
             <div class="combo-stat">
               <div class="combo-stat-label">Ganancia</div>
               <div class="combo-stat-value ${gananciaCombo >= 0 ? 'gain' : 'loss'}">${gananciaCombo >= 0 ? '+' : ''}${fmt(gananciaCombo)}</div>
+              <div class="combo-stat-sub">${margenCombo !== null ? 'margen ' + fmtPct(margenCombo) : ''}</div>
             </div>
             <button class="del-combo" data-cid="${c.id}" aria-label="Eliminar compra">×</button>
           </div>
         </div>
-        <div class="components">${compsHtml}</div>
+        <div class="components">
+          <div class="components-head">
+            ${der.comps.length > 1 ? `<button class="ghost small dist-btn" data-cid="${c.id}">Distribuir costo equitativamente</button>` : '<span></span>'}
+          </div>
+          ${compsHtml}
+        </div>
         <div class="add-comp">
           <input type="text" class="ac-name" placeholder="Nombre del componente" data-cid="${c.id}">
-          <input type="number" class="ac-sale" placeholder="Precio de venta (opcional)" step="0.01" min="0" data-cid="${c.id}">
+          <input type="number" class="ac-costo" placeholder="Costo (opcional)" step="0.01" min="0" data-cid="${c.id}">
+          <input type="number" class="ac-sale" placeholder="Venta (opcional)" step="0.01" min="0" data-cid="${c.id}">
           <button class="ghost ac-add" data-cid="${c.id}">Agregar</button>
         </div>
       </div>
@@ -409,25 +795,56 @@ function render(){
   container.querySelectorAll('.comp-sale-input').forEach(inp => {
     inp.addEventListener('change', () => updateComponentSale(inp.dataset.cid, inp.dataset.pid, inp.value));
   });
+  container.querySelectorAll('.comp-costo-input').forEach(inp => {
+    inp.addEventListener('change', () => updateComponentCosto(inp.dataset.cid, inp.dataset.pid, inp.value));
+  });
   container.querySelectorAll('.ac-add').forEach(btn => {
     btn.addEventListener('click', () => addComponent(btn.dataset.cid));
   });
+  container.querySelectorAll('.dist-btn').forEach(btn => {
+    btn.addEventListener('click', () => distribuirCosto(btn.dataset.cid));
+  });
+}
+
+async function distribuirCosto(cid){
+  const combo = combos.find(c => c.id === cid);
+  if(!combo || combo.components.length === 0) return;
+  const der = comboDerived(combo);
+  const share = der.costoReal / combo.components.length;
+  const updates = combo.components.map(comp =>
+    db.from('COMPONENTES').update({ costo: Number(share.toFixed(2)) }).eq('id', Number(comp.id))
+  );
+  const results = await Promise.all(updates);
+  const err = results.find(r => r.error);
+  if(err){
+    console.error(err.error);
+    setStatus('Error al distribuir costo: ' + err.error.message, true);
+    return;
+  }
+  await loadFromSupabase();
 }
 
 async function addComponent(cid){
   const nameInput = document.querySelector(`.ac-name[data-cid="${cid}"]`);
+  const costoInput = document.querySelector(`.ac-costo[data-cid="${cid}"]`);
   const saleInput = document.querySelector(`.ac-sale[data-cid="${cid}"]`);
   const name = nameInput.value.trim();
   if(!name) return;
 
+  const costoRaw = costoInput.value.trim();
+  const costo = costoRaw === '' ? null : parseFloat(costoRaw);
   const saleRaw = saleInput.value.trim();
   const sale = saleRaw === '' ? null : parseFloat(saleRaw);
 
-  const { error } = await db.from('COMPONENTES').insert({
+  const payload = {
     compra_id: Number(cid),
     nombre: name,
-    precio_venta: sale !== null && !isNaN(sale) ? sale : null
-  });
+    precio_venta: sale !== null && !isNaN(sale) ? sale : null,
+    costo: costo !== null && !isNaN(costo) ? costo : null
+  };
+  if(payload.precio_venta !== null) payload.fecha_venta = new Date().toISOString();
+
+  const { error } = await db.from('COMPONENTES').insert(payload);
 
   if(error){
     console.error(error);
@@ -440,14 +857,32 @@ async function addComponent(cid){
 async function updateComponentSale(cid, pid, rawValue){
   const trimmed = String(rawValue).trim();
   const value = trimmed === '' ? null : parseFloat(trimmed);
+  const clean = value === null || isNaN(value) ? null : value;
 
   const { error } = await db.from('COMPONENTES')
-    .update({ precio_venta: value === null || isNaN(value) ? null : value })
+    .update({ precio_venta: clean, fecha_venta: clean === null ? null : new Date().toISOString() })
     .eq('id', Number(pid));
 
   if(error){
     console.error(error);
     setStatus('Error al actualizar venta: ' + error.message, true);
+    return;
+  }
+  await loadFromSupabase();
+}
+
+async function updateComponentCosto(cid, pid, rawValue){
+  const trimmed = String(rawValue).trim();
+  const value = trimmed === '' ? null : parseFloat(trimmed);
+  const clean = value === null || isNaN(value) ? null : value;
+
+  const { error } = await db.from('COMPONENTES')
+    .update({ costo: clean })
+    .eq('id', Number(pid));
+
+  if(error){
+    console.error(error);
+    setStatus('Error al actualizar costo: ' + error.message, true);
     return;
   }
   await loadFromSupabase();
@@ -473,6 +908,32 @@ async function deleteCombo(cid){
   await loadFromSupabase();
 }
 
+/* ---------------- formulario nueva compra ---------------- */
+function comprasFormRealCost(){
+  const cost = num(document.getElementById('c-cost').value);
+  const currency = document.getElementById('c-currency').value;
+  const rate = num(document.getElementById('c-rate').value);
+  const taxPct = num(document.getElementById('c-tax').value);
+  const pesoKg = num(document.getElementById('c-peso').value);
+  const envioKg = num(document.getElementById('c-envio-kg').value);
+  const taxUsa = num(document.getElementById('c-tax-usa').value);
+  const impPeru = num(document.getElementById('c-imp-peru').value);
+  const otros = num(document.getElementById('c-otros').value);
+
+  const base = currency === 'USD' ? cost * rate : cost;
+  const baseConTax = base * (1 + taxPct / 100);
+  const envioTotal = pesoKg * envioKg;
+  return baseConTax + envioTotal + taxUsa + impPeru + otros;
+}
+function updateCostoRealPreview(){
+  document.getElementById('c-costo-real-preview').textContent = fmt(comprasFormRealCost());
+}
+['c-cost','c-currency','c-rate','c-tax','c-peso','c-envio-kg','c-tax-usa','c-imp-peru','c-otros'].forEach(id => {
+  document.getElementById(id).addEventListener('input', updateCostoRealPreview);
+  document.getElementById(id).addEventListener('change', updateCostoRealPreview);
+});
+document.getElementById('c-fecha').value = todayISO();
+
 document.getElementById('add-combo-btn').addEventListener('click', async () => {
   const nameInput = document.getElementById('c-name');
   const costInput = document.getElementById('c-cost');
@@ -489,13 +950,25 @@ document.getElementById('add-combo-btn').addEventListener('click', async () => {
   }
   errorEl.style.display = 'none';
 
-  const { error } = await db.from('COMPRAS').insert({
+  const payload = {
     nombre: name,
     costo: cost,
     moneda: currencyInput.value,
     tipo_cambio: parseFloat(rateInput.value) || 0,
-    impuesto: parseFloat(taxInput.value) || 0
-  });
+    impuesto: parseFloat(taxInput.value) || 0,
+    proveedor: document.getElementById('c-proveedor').value.trim() || null,
+    fecha_compra: document.getElementById('c-fecha').value || null,
+    numero_pedido: document.getElementById('c-pedido').value.trim() || null,
+    courier: document.getElementById('c-courier').value.trim() || null,
+    peso_kg: num(document.getElementById('c-peso').value),
+    costo_envio_kg: num(document.getElementById('c-envio-kg').value),
+    tax_usa: num(document.getElementById('c-tax-usa').value),
+    impuesto_peru: num(document.getElementById('c-imp-peru').value),
+    otros_gastos: num(document.getElementById('c-otros').value),
+    categoria: document.getElementById('c-categoria').value || null
+  };
+
+  const { error } = await db.from('COMPRAS').insert(payload);
 
   if(error){
     console.error(error);
@@ -503,13 +976,341 @@ document.getElementById('add-combo-btn').addEventListener('click', async () => {
     return;
   }
 
-  nameInput.value = '';
-  costInput.value = '';
-  rateInput.value = '';
-  taxInput.value = '';
+  ['c-name','c-cost','c-rate','c-tax','c-proveedor','c-pedido','c-courier','c-peso','c-envio-kg','c-tax-usa','c-imp-peru','c-otros'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('c-categoria').value = '';
+  document.getElementById('c-fecha').value = todayISO();
+  updateCostoRealPreview();
   await loadFromSupabase();
 });
 
+/* ---------------- vista: Dashboard ---------------- */
+function renderDashboard(){
+  let invertido = 0, recuperado = 0, stockPendienteValor = 0;
+  const flat = getAllComponentsFlat();
+
+  combos.forEach(c => { invertido += realCostSoles(c); });
+  flat.forEach(row => {
+    if(row.estado === 'vendido') recuperado += row.sale;
+    else stockPendienteValor += row.costo;
+  });
+
+  document.getElementById('m-invertido').textContent = fmt(invertido);
+  document.getElementById('m-recuperado').textContent = fmt(recuperado);
+  const gEl = document.getElementById('m-ganancia');
+  const gananciaTotal = recuperado - invertido;
+  gEl.textContent = fmt(gananciaTotal);
+  gEl.className = 'metric-value ' + (gananciaTotal >= 0 ? 'gain' : 'loss');
+  document.getElementById('m-stock-pendiente').textContent = fmt(stockPendienteValor);
+
+  const currentKey = lastNMonthKeys(1)[0];
+  let ventasMes = 0, gananciaMes = 0, vendidosMes = 0, pendientesTotal = 0;
+  flat.forEach(row => {
+    if(row.estado === 'pendiente'){ pendientesTotal++; return; }
+    const key = monthKeyOf(row.fechaVenta) || monthKeyOf(row.fecha);
+    if(key === currentKey){
+      ventasMes += row.sale;
+      gananciaMes += row.ganancia;
+      vendidosMes++;
+    }
+  });
+  document.getElementById('m-ventas-mes').textContent = fmt(ventasMes);
+  document.getElementById('m-ganancia-mes').textContent = fmt(gananciaMes);
+  document.getElementById('m-vendidos-mes').textContent = vendidosMes;
+  document.getElementById('m-pendientes-total').textContent = pendientesTotal;
+
+  renderMonthlyCharts(flat);
+  renderUltimasVentas(flat);
+}
+
+function renderMonthlyCharts(flat){
+  const keys = lastNMonthKeys(6);
+  const ventasPorMes = {}, gananciaPorMes = {};
+  keys.forEach(k => { ventasPorMes[k] = 0; gananciaPorMes[k] = 0; });
+
+  flat.filter(r => r.estado === 'vendido').forEach(row => {
+    const key = monthKeyOf(row.fechaVenta) || monthKeyOf(row.fecha);
+    if(key && keys.indexOf(key) !== -1){
+      ventasPorMes[key] += row.sale;
+      gananciaPorMes[key] += row.ganancia;
+    }
+  });
+
+  drawBarChart('chart-ventas', keys.map(monthLabelOf), keys.map(k => ventasPorMes[k]), '#c9a15a');
+  drawBarChart('chart-ganancia', keys.map(monthLabelOf), keys.map(k => gananciaPorMes[k]), '#7fb069');
+}
+
+function drawBarChart(canvasId, labels, values, color){
+  const canvas = document.getElementById(canvasId);
+  const dpr = window.devicePixelRatio || 1;
+  const cssWidth = canvas.clientWidth || canvas.parentElement.clientWidth || 300;
+  const cssHeight = 150;
+  canvas.width = cssWidth * dpr;
+  canvas.height = cssHeight * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, cssWidth, cssHeight);
+
+  const max = Math.max.apply(null, values.concat([1]));
+  const padTop = 18, padBottom = 22, padSide = 6;
+  const plotH = cssHeight - padTop - padBottom;
+  const n = values.length;
+  const slot = (cssWidth - padSide * 2) / n;
+  const barW = Math.min(34, slot * 0.5);
+
+  ctx.font = '10px Inter, sans-serif';
+  ctx.fillStyle = '#8f9686';
+  ctx.textAlign = 'center';
+
+  values.forEach((v, i) => {
+    const x = padSide + slot * i + slot / 2;
+    const h = max > 0 ? (v / max) * plotH : 0;
+    const y = padTop + (plotH - h);
+
+    ctx.fillStyle = color;
+    ctx.globalAlpha = v > 0 ? 0.9 : 0.15;
+    ctx.beginPath();
+    if(ctx.roundRect){
+      ctx.roundRect(x - barW/2, y, barW, Math.max(h,2), 3);
+    }else{
+      ctx.rect(x - barW/2, y, barW, Math.max(h,2));
+    }
+    ctx.fill();
+    ctx.globalAlpha = 1;
+
+    ctx.fillStyle = '#8f9686';
+    ctx.fillText(labels[i], x, cssHeight - 6);
+    if(v > 0){
+      ctx.fillStyle = '#e9e7db';
+      ctx.font = '9.5px JetBrains Mono, monospace';
+      ctx.fillText(Math.round(v).toLocaleString('es-PE'), x, y - 4);
+      ctx.font = '10px Inter, sans-serif';
+    }
+  });
+}
+
+function renderUltimasVentas(flat){
+  const sold = flat.filter(r => r.estado === 'vendido')
+    .sort((a,b) => new Date(b.fechaVenta || b.fecha || 0) - new Date(a.fechaVenta || a.fecha || 0))
+    .slice(0, 8);
+  const tbody = document.querySelector('#tabla-ultimas-ventas tbody');
+  if(sold.length === 0){
+    tbody.innerHTML = '<tr><td colspan="4" class="empty">Aún no registras ventas.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = sold.map(r => `
+    <tr>
+      <td>${escapeHtml(r.name)}</td>
+      <td class="cell-num">${fmt(r.sale)}</td>
+      <td class="cell-num" style="color:${r.ganancia>=0?'var(--gain)':'var(--loss)'}">${r.ganancia>=0?'+':''}${fmt(r.ganancia)}</td>
+      <td>${escapeHtml(r.fechaVenta ? r.fechaVenta.slice(0,10) : (r.fecha || '—'))}</td>
+    </tr>
+  `).join('');
+}
+
+/* ---------------- vista: Inventario ---------------- */
+function getInventoryGroups(){
+  const map = new Map();
+  combos.forEach(combo => {
+    const der = comboDerived(combo);
+    der.comps.forEach(comp => {
+      if(comp.sale !== null) return;
+      const key = comp.name.trim().toLowerCase();
+      if(!map.has(key)) map.set(key, { name: comp.name.trim(), items: [] });
+      map.get(key).items.push({ comboId: combo.id, compId: comp.id, costo: comp.costoFinal, sugerido: comp.sugerido });
+    });
+  });
+  return Array.from(map.values()).map(g => {
+    const stock = g.items.length;
+    const costoProm = g.items.reduce((s,i) => s + i.costo, 0) / stock;
+    const sugeridos = g.items.map(i => i.sugerido).filter(v => v !== null);
+    const ventaProm = sugeridos.length ? sugeridos.reduce((a,b) => a+b, 0) / sugeridos.length : null;
+    const ganancia = ventaProm !== null ? (ventaProm - costoProm) * stock : null;
+    return Object.assign({}, g, { stock, costoProm, ventaProm, ganancia });
+  }).sort((a,b) => a.name.localeCompare(b.name));
+}
+
+function renderInventario(){
+  const groups = getInventoryGroups();
+  const tbody = document.querySelector('#tabla-inventario tbody');
+  if(groups.length === 0){
+    tbody.innerHTML = '<tr><td colspan="6" class="empty">No hay stock pendiente. Todo lo que compraste ya está vendido.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = groups.map(g => `
+    <tr>
+      <td>${escapeHtml(g.name)}</td>
+      <td class="cell-num">${fmt(g.costoProm)}</td>
+      <td class="cell-num">${g.ventaProm !== null ? fmt(g.ventaProm) : '—'}</td>
+      <td class="cell-num">${g.stock}</td>
+      <td class="cell-num" style="color:${g.ganancia===null?'inherit':(g.ganancia>=0?'var(--gain)':'var(--loss)')}">${g.ganancia !== null ? (g.ganancia>=0?'+':'')+fmt(g.ganancia) : '—'}</td>
+      <td>
+        <div class="row-actions">
+          <button class="ghost small inv-edit" data-key="${escapeHtml(g.name)}">Editar</button>
+          <button class="ghost small inv-vender" data-key="${escapeHtml(g.name)}">Registrar venta</button>
+          <button class="ghost small inv-del" data-key="${escapeHtml(g.name)}">Eliminar</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+
+  tbody.querySelectorAll('.inv-edit').forEach(btn => {
+    btn.addEventListener('click', () => inventarioEditar(btn.dataset.key));
+  });
+  tbody.querySelectorAll('.inv-vender').forEach(btn => {
+    btn.addEventListener('click', () => inventarioRegistrarVenta(btn.dataset.key));
+  });
+  tbody.querySelectorAll('.inv-del').forEach(btn => {
+    btn.addEventListener('click', () => inventarioEliminar(btn.dataset.key));
+  });
+}
+
+function findGroupItems(name){
+  const key = name.trim().toLowerCase();
+  const groups = getInventoryGroups();
+  const g = groups.find(x => x.name.trim().toLowerCase() === key);
+  return g ? g.items : [];
+}
+
+async function inventarioEditar(name){
+  const items = findGroupItems(name);
+  if(items.length === 0) return;
+  const nuevoSugerido = window.prompt(`Precio de venta sugerido para "${name}" (S/):`, items[0].sugerido !== null ? items[0].sugerido : '');
+  if(nuevoSugerido === null) return;
+  const value = nuevoSugerido.trim() === '' ? null : parseFloat(nuevoSugerido);
+  const clean = value === null || isNaN(value) ? null : value;
+
+  const updates = items.map(it => db.from('COMPONENTES').update({ precio_sugerido: clean }).eq('id', Number(it.compId)));
+  const results = await Promise.all(updates);
+  const err = results.find(r => r.error);
+  if(err){
+    console.error(err.error);
+    setStatus('Error al actualizar precio sugerido: ' + err.error.message, true);
+    return;
+  }
+  await loadFromSupabase();
+}
+
+async function inventarioRegistrarVenta(name){
+  const items = findGroupItems(name);
+  if(items.length === 0) return;
+  const sugerido = items[0].sugerido;
+  const raw = window.prompt(`Precio de venta real para "${name}" (S/):`, sugerido !== null ? sugerido : '');
+  if(raw === null) return;
+  const value = parseFloat(raw);
+  if(isNaN(value) || value < 0){
+    alert('Ingresa un precio válido.');
+    return;
+  }
+  const target = items[0];
+  const { error } = await db.from('COMPONENTES')
+    .update({ precio_venta: value, fecha_venta: new Date().toISOString() })
+    .eq('id', Number(target.compId));
+  if(error){
+    console.error(error);
+    setStatus('Error al registrar venta: ' + error.message, true);
+    return;
+  }
+  await loadFromSupabase();
+}
+
+async function inventarioEliminar(name){
+  const items = findGroupItems(name);
+  if(items.length === 0) return;
+  if(!window.confirm(`¿Eliminar una unidad pendiente de "${name}"?`)) return;
+  const target = items[0];
+  const { error } = await db.from('COMPONENTES').delete().eq('id', Number(target.compId));
+  if(error){
+    console.error(error);
+    setStatus('Error al eliminar: ' + error.message, true);
+    return;
+  }
+  await loadFromSupabase();
+}
+
+/* ---------------- vista: Historial ---------------- */
+function populateHistorialFilters(flat){
+  const proveedorSel = document.getElementById('h-proveedor');
+  const categoriaSel = document.getElementById('h-categoria');
+  const proveedorActual = proveedorSel.value;
+  const categoriaActual = categoriaSel.value;
+
+  const proveedores = Array.from(new Set(flat.map(r => r.proveedor).filter(Boolean))).sort();
+  const categorias = Array.from(new Set(flat.map(r => r.categoria).filter(Boolean))).sort();
+
+  proveedorSel.innerHTML = '<option value="">Todos</option>' + proveedores.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
+  categoriaSel.innerHTML = '<option value="">Todas</option>' + categorias.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+
+  if(proveedores.includes(proveedorActual)) proveedorSel.value = proveedorActual;
+  if(categorias.includes(categoriaActual)) categoriaSel.value = categoriaActual;
+}
+
+function renderHistorial(){
+  const flat = getAllComponentsFlat();
+  populateHistorialFilters(flat);
+
+  const search = document.getElementById('h-search').value.trim().toLowerCase();
+  const estadoFiltro = document.getElementById('h-estado').value;
+  const proveedorFiltro = document.getElementById('h-proveedor').value;
+  const categoriaFiltro = document.getElementById('h-categoria').value;
+
+  let rows = flat.slice().sort((a,b) => new Date(b.fechaVenta || b.fecha || 0) - new Date(a.fechaVenta || a.fecha || 0));
+
+  if(search){
+    rows = rows.filter(r => (r.name || '').toLowerCase().includes(search) || (r.comboName || '').toLowerCase().includes(search));
+  }
+  if(estadoFiltro) rows = rows.filter(r => r.estado === estadoFiltro);
+  if(proveedorFiltro) rows = rows.filter(r => r.proveedor === proveedorFiltro);
+  if(categoriaFiltro) rows = rows.filter(r => r.categoria === categoriaFiltro);
+
+  const tbody = document.querySelector('#tabla-historial tbody');
+  if(rows.length === 0){
+    tbody.innerHTML = '<tr><td colspan="10" class="empty">No hay resultados con estos filtros.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = rows.map(r => `
+    <tr>
+      <td>${escapeHtml(r.fechaVenta ? r.fechaVenta.slice(0,10) : (r.fecha || '—'))}</td>
+      <td>${escapeHtml(r.name)}</td>
+      <td>${escapeHtml(r.comboName)}</td>
+      <td>${escapeHtml(r.proveedor || '—')}</td>
+      <td>${escapeHtml(r.categoria || '—')}</td>
+      <td class="cell-num">${fmt(r.costo)}</td>
+      <td class="cell-num">${r.sale !== null ? fmt(r.sale) : '—'}</td>
+      <td class="cell-num" style="color:${r.ganancia===null?'inherit':(r.ganancia>=0?'var(--gain)':'var(--loss)')}">${r.ganancia !== null ? (r.ganancia>=0?'+':'')+fmt(r.ganancia) : '—'}</td>
+      <td class="cell-num">${fmtPct(r.margen)}</td>
+      <td><span class="badge ${r.estado}">${r.estado === 'vendido' ? 'Vendido' : 'Pendiente'}</span></td>
+    </tr>
+  `).join('');
+}
+
+['h-search','h-estado','h-proveedor','h-categoria'].forEach(id => {
+  document.getElementById(id).addEventListener('input', renderHistorial);
+  document.getElementById(id).addEventListener('change', renderHistorial);
+});
+
+/* ---------------- navegación ---------------- */
+document.querySelectorAll('.nav-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const view = btn.dataset.view;
+    document.querySelectorAll('.view-section').forEach(s => s.classList.toggle('visible', s.dataset.view === view));
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b === btn));
+    currentView = view;
+    if(view === 'dashboard') renderDashboard();
+    if(view === 'inventario') renderInventario();
+    if(view === 'historial') renderHistorial();
+  });
+});
+
+let resizeTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => { if(currentView === 'dashboard') renderDashboard(); }, 200);
+});
+
+/* ---------------- autenticación ---------------- */
 document.getElementById('login-btn').addEventListener('click', async () => {
   const email = document.getElementById('auth-email').value.trim();
   const password = document.getElementById('auth-password').value;
@@ -550,7 +1351,6 @@ async function handleSession(session){
     pollTimer = setInterval(loadFromSupabase, 30000);
   }else{
     combos = [];
-    render();
     setStatus('Inicia sesión para ver y guardar los datos.');
   }
 }
