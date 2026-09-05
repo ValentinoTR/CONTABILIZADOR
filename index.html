@@ -8,19 +8,19 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#141810;
-    --surface:#1c221a;
-    --surface-2:#232b1f;
-    --border:#333f2b;
-    --border-strong:#4a5c3e;
-    --text:#e9e7db;
-    --text-muted:#8f9686;
-    --gain:#7fb069;
-    --gain-dim:#3a4a30;
-    --loss:#c96b4a;
-    --loss-dim:#4a3324;
-    --gold:#c9a15a;
-    --blue:#6a9bc9;
+    --bg:#120f1e;
+    --surface:#1b1730;
+    --surface-2:#221d3d;
+    --border:#332b56;
+    --border-strong:#4a3d78;
+    --text:#ece9f7;
+    --text-muted:#9089b8;
+    --gain:#4ade80;
+    --gain-dim:#1f3a2c;
+    --loss:#f2685c;
+    --loss-dim:#3d2226;
+    --gold:#8b5cf6;
+    --blue:#06b6d4;
     --radius:10px;
     --sidebar-w:212px;
   }
@@ -307,6 +307,7 @@
         <div class="metric">
           <div class="metric-label">📦 Stock pendiente</div>
           <div class="metric-value" id="m-stock-pendiente">S/ 0</div>
+          <div style="font-size:10.5px;color:var(--text-muted);margin-top:3px;" id="m-stock-pendiente-note"></div>
         </div>
       </div>
 
@@ -627,20 +628,19 @@ function realCostSoles(combo){
   return baseConTax + envioTotal + (combo.taxUsa || 0) + (combo.impPeru || 0) + (combo.otros || 0);
 }
 
-// Reparte el costo real del combo entre sus componentes: respeta los costos
-// puestos a mano y reparte el resto en partes iguales entre los demás.
+// El costo real de la COMPRA completa (con envío/impuestos) se calcula solo,
+// porque sale de datos reales del formulario. El costo de cada componente
+// dentro de un combo, en cambio, NUNCA se adivina ni se reparte
+// automáticamente: si no lo escribes, queda vacío ("sin costo"), porque solo
+// tú sabes cuánto vale en realidad cada pieza dentro de un combo.
 function comboDerived(combo){
   const costoReal = realCostSoles(combo);
   const comps = combo.components;
-  const explicit = comps.filter(c => c.costo !== null);
-  const sumExplicit = explicit.reduce((s,c) => s + c.costo, 0);
-  const implicitCount = comps.length - explicit.length;
-  const implicitShare = implicitCount > 0 ? Math.max(costoReal - sumExplicit, 0) / implicitCount : 0;
 
   const derivedComps = comps.map(c => {
-    const costoFinal = c.costo !== null ? c.costo : (comps.length === 0 ? 0 : implicitShare);
-    const ganancia = c.sale !== null ? c.sale - costoFinal : null;
-    const margen = (c.sale !== null && c.sale !== 0) ? (ganancia / c.sale) * 100 : null;
+    const costoFinal = c.costo; // null = no definido, no se estima
+    const ganancia = (c.sale !== null && costoFinal !== null) ? c.sale - costoFinal : null;
+    const margen = (ganancia !== null && c.sale !== 0) ? (ganancia / c.sale) * 100 : null;
     return Object.assign({}, c, { costoFinal, ganancia, margen });
   });
 
@@ -670,6 +670,12 @@ function getAllComponentsFlat(){
 
 function monthKeyOf(dateStr){
   if(!dateStr) return null;
+  // Las fechas de compra vienen como "YYYY-MM-DD" (sin hora). Si se le pasan
+  // a `new Date()` se interpretan como UTC y, en husos horarios negativos
+  // (como Perú, UTC-5), se corren al día/mes anterior. Para evitar ese
+  // desfase, un "YYYY-MM-DD" se lee directo como fecha local.
+  const dateOnly = /^(\d{4})-(\d{2})-\d{2}$/.exec(dateStr);
+  if(dateOnly) return dateOnly[1] + '-' + dateOnly[2];
   const d = new Date(dateStr);
   if(isNaN(d.getTime())) return null;
   return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
@@ -727,13 +733,18 @@ function renderCompras(){
 
     const compsHtml = der.comps.length === 0
       ? '<div style="color:var(--text-muted);font-size:13px;padding:8px 0;">Aún no agregaste componentes de esta compra.</div>'
-      : der.comps.map(comp => `
+      : der.comps.map(comp => {
+          let marginText = '';
+          if(comp.sale !== null){
+            marginText = comp.margen !== null ? fmtPct(comp.margen) : 'sin costo';
+          }
+          return `
         <div class="comp-row" data-cid="${c.id}" data-pid="${comp.id}">
           <div class="comp-name">${escapeHtml(comp.name)}</div>
           <div class="comp-inline-field">
             <span>costo</span>
             <input type="number" class="comp-costo-input" step="0.01" min="0"
-              value="${comp.costo !== null ? comp.costo : ''}" placeholder="${comp.costoFinal.toFixed(2)}"
+              value="${comp.costo !== null ? comp.costo : ''}" placeholder="opcional"
               data-cid="${c.id}" data-pid="${comp.id}">
           </div>
           <div class="comp-inline-field">
@@ -742,10 +753,11 @@ function renderCompras(){
               value="${comp.sale === null ? '' : comp.sale}"
               data-cid="${c.id}" data-pid="${comp.id}">
           </div>
-          <div class="comp-margin">${comp.sale !== null ? fmtPct(comp.margen) : ''}</div>
+          <div class="comp-margin">${marginText}</div>
           <button class="comp-del" data-cid="${c.id}" data-pid="${comp.id}" aria-label="Eliminar componente">×</button>
         </div>
-      `).join('');
+      `;
+        }).join('');
 
     return `
     <div class="combo-item">
@@ -771,9 +783,6 @@ function renderCompras(){
           </div>
         </div>
         <div class="components">
-          <div class="components-head">
-            ${der.comps.length > 1 ? `<button class="ghost small dist-btn" data-cid="${c.id}">Distribuir costo equitativamente</button>` : '<span></span>'}
-          </div>
           ${compsHtml}
         </div>
         <div class="add-comp">
@@ -801,27 +810,6 @@ function renderCompras(){
   container.querySelectorAll('.ac-add').forEach(btn => {
     btn.addEventListener('click', () => addComponent(btn.dataset.cid));
   });
-  container.querySelectorAll('.dist-btn').forEach(btn => {
-    btn.addEventListener('click', () => distribuirCosto(btn.dataset.cid));
-  });
-}
-
-async function distribuirCosto(cid){
-  const combo = combos.find(c => c.id === cid);
-  if(!combo || combo.components.length === 0) return;
-  const der = comboDerived(combo);
-  const share = der.costoReal / combo.components.length;
-  const updates = combo.components.map(comp =>
-    db.from('COMPONENTES').update({ costo: Number(share.toFixed(2)) }).eq('id', Number(comp.id))
-  );
-  const results = await Promise.all(updates);
-  const err = results.find(r => r.error);
-  if(err){
-    console.error(err.error);
-    setStatus('Error al distribuir costo: ' + err.error.message, true);
-    return;
-  }
-  await loadFromSupabase();
 }
 
 async function addComponent(cid){
@@ -987,13 +975,14 @@ document.getElementById('add-combo-btn').addEventListener('click', async () => {
 
 /* ---------------- vista: Dashboard ---------------- */
 function renderDashboard(){
-  let invertido = 0, recuperado = 0, stockPendienteValor = 0;
+  let invertido = 0, recuperado = 0, stockPendienteValor = 0, stockSinCosto = 0;
   const flat = getAllComponentsFlat();
 
   combos.forEach(c => { invertido += realCostSoles(c); });
   flat.forEach(row => {
     if(row.estado === 'vendido') recuperado += row.sale;
-    else stockPendienteValor += row.costo;
+    else if(row.costo !== null) stockPendienteValor += row.costo;
+    else stockSinCosto++;
   });
 
   document.getElementById('m-invertido').textContent = fmt(invertido);
@@ -1003,6 +992,9 @@ function renderDashboard(){
   gEl.textContent = fmt(gananciaTotal);
   gEl.className = 'metric-value ' + (gananciaTotal >= 0 ? 'gain' : 'loss');
   document.getElementById('m-stock-pendiente').textContent = fmt(stockPendienteValor);
+  document.getElementById('m-stock-pendiente-note').textContent = stockSinCosto > 0
+    ? `+${stockSinCosto} sin costo asignado`
+    : '';
 
   const currentKey = lastNMonthKeys(1)[0];
   let ventasMes = 0, gananciaMes = 0, vendidosMes = 0, pendientesTotal = 0;
@@ -1011,7 +1003,7 @@ function renderDashboard(){
     const key = monthKeyOf(row.fechaVenta) || monthKeyOf(row.fecha);
     if(key === currentKey){
       ventasMes += row.sale;
-      gananciaMes += row.ganancia;
+      if(row.ganancia !== null) gananciaMes += row.ganancia;
       vendidosMes++;
     }
   });
@@ -1033,12 +1025,12 @@ function renderMonthlyCharts(flat){
     const key = monthKeyOf(row.fechaVenta) || monthKeyOf(row.fecha);
     if(key && keys.indexOf(key) !== -1){
       ventasPorMes[key] += row.sale;
-      gananciaPorMes[key] += row.ganancia;
+      if(row.ganancia !== null) gananciaPorMes[key] += row.ganancia;
     }
   });
 
-  drawBarChart('chart-ventas', keys.map(monthLabelOf), keys.map(k => ventasPorMes[k]), '#c9a15a');
-  drawBarChart('chart-ganancia', keys.map(monthLabelOf), keys.map(k => gananciaPorMes[k]), '#7fb069');
+  drawBarChart('chart-ventas', keys.map(monthLabelOf), keys.map(k => ventasPorMes[k]), '#8b5cf6');
+  drawBarChart('chart-ganancia', keys.map(monthLabelOf), keys.map(k => gananciaPorMes[k]), '#4ade80');
 }
 
 function drawBarChart(canvasId, labels, values, color){
@@ -1060,7 +1052,7 @@ function drawBarChart(canvasId, labels, values, color){
   const barW = Math.min(34, slot * 0.5);
 
   ctx.font = '10px Inter, sans-serif';
-  ctx.fillStyle = '#8f9686';
+  ctx.fillStyle = '#9089b8';
   ctx.textAlign = 'center';
 
   values.forEach((v, i) => {
@@ -1079,10 +1071,10 @@ function drawBarChart(canvasId, labels, values, color){
     ctx.fill();
     ctx.globalAlpha = 1;
 
-    ctx.fillStyle = '#8f9686';
+    ctx.fillStyle = '#9089b8';
     ctx.fillText(labels[i], x, cssHeight - 6);
     if(v > 0){
-      ctx.fillStyle = '#e9e7db';
+      ctx.fillStyle = '#ece9f7';
       ctx.font = '9.5px JetBrains Mono, monospace';
       ctx.fillText(Math.round(v).toLocaleString('es-PE'), x, y - 4);
       ctx.font = '10px Inter, sans-serif';
@@ -1103,7 +1095,7 @@ function renderUltimasVentas(flat){
     <tr>
       <td>${escapeHtml(r.name)}</td>
       <td class="cell-num">${fmt(r.sale)}</td>
-      <td class="cell-num" style="color:${r.ganancia>=0?'var(--gain)':'var(--loss)'}">${r.ganancia>=0?'+':''}${fmt(r.ganancia)}</td>
+      <td class="cell-num" style="color:${r.ganancia===null?'inherit':(r.ganancia>=0?'var(--gain)':'var(--loss)')}">${r.ganancia !== null ? (r.ganancia>=0?'+':'')+fmt(r.ganancia) : 'sin costo'}</td>
       <td>${escapeHtml(r.fechaVenta ? r.fechaVenta.slice(0,10) : (r.fecha || '—'))}</td>
     </tr>
   `).join('');
@@ -1123,11 +1115,12 @@ function getInventoryGroups(){
   });
   return Array.from(map.values()).map(g => {
     const stock = g.items.length;
-    const costoProm = g.items.reduce((s,i) => s + i.costo, 0) / stock;
+    const conCosto = g.items.filter(i => i.costo !== null);
+    const costoProm = conCosto.length ? conCosto.reduce((s,i) => s + i.costo, 0) / conCosto.length : null;
     const sugeridos = g.items.map(i => i.sugerido).filter(v => v !== null);
     const ventaProm = sugeridos.length ? sugeridos.reduce((a,b) => a+b, 0) / sugeridos.length : null;
-    const ganancia = ventaProm !== null ? (ventaProm - costoProm) * stock : null;
-    return Object.assign({}, g, { stock, costoProm, ventaProm, ganancia });
+    const ganancia = (costoProm !== null && ventaProm !== null) ? (ventaProm - costoProm) * stock : null;
+    return Object.assign({}, g, { stock, costoProm, ventaProm, ganancia, sinCosto: conCosto.length < stock });
   }).sort((a,b) => a.name.localeCompare(b.name));
 }
 
@@ -1140,8 +1133,8 @@ function renderInventario(){
   }
   tbody.innerHTML = groups.map(g => `
     <tr>
-      <td>${escapeHtml(g.name)}</td>
-      <td class="cell-num">${fmt(g.costoProm)}</td>
+      <td>${escapeHtml(g.name)}${g.sinCosto ? ' <span style="color:var(--text-muted);font-size:11px;">(sin costo)</span>' : ''}</td>
+      <td class="cell-num">${g.costoProm !== null ? fmt(g.costoProm) : '—'}</td>
       <td class="cell-num">${g.ventaProm !== null ? fmt(g.ventaProm) : '—'}</td>
       <td class="cell-num">${g.stock}</td>
       <td class="cell-num" style="color:${g.ganancia===null?'inherit':(g.ganancia>=0?'var(--gain)':'var(--loss)')}">${g.ganancia !== null ? (g.ganancia>=0?'+':'')+fmt(g.ganancia) : '—'}</td>
@@ -1277,7 +1270,7 @@ function renderHistorial(){
       <td>${escapeHtml(r.comboName)}</td>
       <td>${escapeHtml(r.proveedor || '—')}</td>
       <td>${escapeHtml(r.categoria || '—')}</td>
-      <td class="cell-num">${fmt(r.costo)}</td>
+      <td class="cell-num">${r.costo !== null ? fmt(r.costo) : '—'}</td>
       <td class="cell-num">${r.sale !== null ? fmt(r.sale) : '—'}</td>
       <td class="cell-num" style="color:${r.ganancia===null?'inherit':(r.ganancia>=0?'var(--gain)':'var(--loss)')}">${r.ganancia !== null ? (r.ganancia>=0?'+':'')+fmt(r.ganancia) : '—'}</td>
       <td class="cell-num">${fmtPct(r.margen)}</td>
