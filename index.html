@@ -427,6 +427,18 @@
   .comp-input{height:32px;width:128px;font-size:13px;}
   .comp-name{font-weight:500;word-break:break-word;}
   .comp-empty{padding:18px 20px;font-size:13px;color:var(--text-muted);}
+  .buyer-chip{
+    display:inline-flex;align-items:center;gap:5px;max-width:100%;height:24px;margin-top:6px;padding:0 9px;
+    border-radius:6px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-2);
+    font-size:12px;cursor:pointer;transition:border-color .15s,color .15s,background .15s;
+  }
+  .buyer-chip .i{width:13px;height:13px;color:var(--text-muted);}
+  .buyer-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .buyer-chip:hover{border-color:var(--accent);color:var(--text);}
+  .buyer-chip.empty{border-style:dashed;color:var(--warn);background:transparent;}
+  .buyer-chip.empty .i{color:var(--warn);}
+  .buyer-line{display:flex;align-items:center;gap:5px;}
+  .buyer-line .i{width:12px;height:12px;}
   .add-comp{
     display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr) minmax(0,1fr) auto;gap:8px;
     padding:12px 20px;background:var(--surface-2);border-top:1px solid var(--border);
@@ -950,7 +962,7 @@
         <div class="card">
           <div class="card-head">
             <div class="toolbar" style="flex:1;">
-              <div class="search" style="flex:1;min-width:220px;width:auto;"><svg class="i" aria-hidden="true"><use href="#i-search"/></svg><input type="search" id="h-search" placeholder="Buscar producto o compra. Ej: 9800X3D" aria-label="Buscar"></div>
+              <div class="search" style="flex:1;min-width:220px;width:auto;"><svg class="i" aria-hidden="true"><use href="#i-search"/></svg><input type="search" id="h-search" placeholder="Buscar producto, compra o comprador (RUC/DNI)" aria-label="Buscar"></div>
               <select id="h-estado" aria-label="Estado" style="min-width:150px;">
                 <option value="">Todos los estados</option>
                 <option value="vendido">Vendido</option>
@@ -1029,7 +1041,7 @@
       <div class="alert" id="modal-error" role="alert"></div>
     </div>
     <div class="modal-foot">
-      <button type="button" class="btn btn-secondary" data-close>Cancelar</button>
+      <button type="button" class="btn btn-secondary" data-close id="modal-cancel">Cancelar</button>
       <button type="submit" class="btn btn-primary" id="modal-confirm">Guardar</button>
     </div>
   </form>
@@ -1173,6 +1185,7 @@ function openDialog(opts){
     msg.style.display = opts.message ? '' : 'none';
     errEl.style.display = 'none';
     confirmBtn.textContent = opts.confirmText || 'Guardar';
+    document.getElementById('modal-cancel').textContent = opts.cancelText || 'Cancelar';
     confirmBtn.className = 'btn ' + (opts.danger ? 'btn-danger' : 'btn-primary');
 
     fieldsWrap.innerHTML = '';
@@ -1347,7 +1360,9 @@ async function loadFromSupabase(opts){
           sale: comp.precio_venta === null || comp.precio_venta === undefined ? null : Number(comp.precio_venta),
           costo: comp.costo === null || comp.costo === undefined ? null : Number(comp.costo),
           sugerido: comp.precio_sugerido === null || comp.precio_sugerido === undefined ? null : Number(comp.precio_sugerido),
-          fechaVenta: comp.fecha_venta || null
+          fechaVenta: comp.fecha_venta || null,
+          compradorNombre: comp.comprador_nombre || '',
+          compradorDocumento: comp.comprador_documento || ''
         }))
     }));
 
@@ -1407,7 +1422,8 @@ function getAllComponentsFlat(){
         categoria: combo.categoria, fecha, name: comp.name,
         costo: comp.costoFinal, sale: comp.sale, ganancia: comp.ganancia, margen: comp.margen,
         estado: comp.sale !== null ? 'vendido' : 'pendiente',
-        fechaVenta: comp.fechaVenta
+        fechaVenta: comp.fechaVenta,
+        compradorNombre: comp.compradorNombre, compradorDocumento: comp.compradorDocumento
       });
     });
   });
@@ -1527,7 +1543,10 @@ function renderCompras(){
             }
             return `
             <tr>
-              <td><div class="comp-name">${escapeHtml(comp.name)}</div></td>
+              <td>
+                <div class="comp-name">${escapeHtml(comp.name)}</div>
+                ${comp.sale !== null ? buyerChipHtml(c.id, comp) : ''}
+              </td>
               <td class="hide-sm"><span class="badge ${comp.sale !== null ? 'vendido' : 'pendiente'}">${comp.sale !== null ? 'Vendido' : 'Pendiente'}</span></td>
               <td class="num" data-label="Costo"><div class="input-affix sm" style="width:128px;margin-left:auto;"><span class="affix">S/</span>
                 <input type="number" class="comp-input comp-costo-input" step="0.01" min="0" inputmode="decimal"
@@ -1604,6 +1623,9 @@ function renderCompras(){
   container.querySelectorAll('.comp-del').forEach(btn => {
     btn.addEventListener('click', () => deleteComponent(btn.dataset.cid, btn.dataset.pid));
   });
+  container.querySelectorAll('.buyer-chip').forEach(btn => {
+    btn.addEventListener('click', () => editComprador(btn.dataset.cid, btn.dataset.pid));
+  });
   container.querySelectorAll('.comp-sale-input').forEach(inp => {
     inp.addEventListener('change', () => updateComponentSale(inp.dataset.cid, inp.dataset.pid, inp.value));
   });
@@ -1626,6 +1648,77 @@ function renderCompras(){
 ['compras-search','compras-filtro'].forEach(id => {
   document.getElementById(id).addEventListener('input', renderCompras);
 });
+
+/* ---------------- comprador (a quién se vendió) ---------------- */
+// DNI = 8 dígitos, RUC = 11 dígitos. Otros documentos (CE, pasaporte) se aceptan tal cual.
+function docLabel(doc){
+  const d = String(doc || '').trim();
+  if(/^\d{8}$/.test(d)) return 'DNI';
+  if(/^\d{11}$/.test(d)) return 'RUC';
+  return 'Doc.';
+}
+function buyerText(nombre, documento){
+  const parts = [];
+  if(documento) parts.push(docLabel(documento) + ' ' + documento);
+  if(nombre) parts.push(nombre);
+  return parts.join(' · ');
+}
+function buyerChipHtml(cid, comp){
+  const txt = buyerText(comp.compradorNombre, comp.compradorDocumento);
+  return `<button type="button" class="buyer-chip${txt ? '' : ' empty'}" data-cid="${cid}" data-pid="${comp.id}" title="${txt ? 'Editar comprador' : 'Registrar a quién se vendió'}">${icon('user')}<span>${escapeHtml(txt || 'Agregar comprador (RUC/DNI)')}</span></button>`;
+}
+function buyerFields(nombre, documento){
+  return [
+    { name: 'documento', label: 'RUC o DNI del comprador', value: documento || '', placeholder: 'Ej: 12345678 o 20123456789', help: 'DNI: 8 dígitos · RUC: 11 dígitos' },
+    { name: 'nombre', label: 'Nombre o razón social', value: nombre || '', placeholder: 'Opcional' }
+  ];
+}
+function validateBuyer(v){
+  const doc = String(v.documento || '').trim();
+  if(!doc) return 'Ingresa el RUC o DNI del comprador (o pulsa "Omitir").';
+  if(/^\d+$/.test(doc) && doc.length !== 8 && doc.length !== 11) return 'El DNI tiene 8 dígitos y el RUC 11.';
+  if(doc.length > 20) return 'El documento es demasiado largo.';
+  return null;
+}
+function cleanBuyer(v){
+  return {
+    comprador_documento: String(v.documento || '').trim() || null,
+    comprador_nombre: String(v.nombre || '').trim() || null
+  };
+}
+// Pregunta a quién se vendió. Devuelve los campos para Supabase, o null si se omite.
+async function askBuyer(componentName, precio, current){
+  const res = await openDialog({
+    title: '¿A quién se vendió?',
+    message: `"${componentName}"${precio !== null && precio !== undefined ? ' · vendido por ' + fmt(precio) : ''}. Registra el RUC o DNI del comprador.`,
+    fields: buyerFields(current && current.nombre, current && current.documento),
+    confirmText: 'Guardar comprador',
+    cancelText: 'Omitir',
+    validate: validateBuyer
+  });
+  return res ? cleanBuyer(res) : null;
+}
+
+async function editComprador(cid, pid){
+  const { comp } = findComponent(cid, pid);
+  if(!comp) return;
+  const tenia = !!(comp.compradorNombre || comp.compradorDocumento);
+  const res = await openDialog({
+    title: tenia ? 'Editar comprador' : '¿A quién se vendió?',
+    message: `"${comp.name}"${comp.sale !== null ? ' · vendido por ' + fmt(comp.sale) : ''}.${tenia ? ' Deja ambos campos vacíos para quitar el comprador.' : ''}`,
+    fields: buyerFields(comp.compradorNombre, comp.compradorDocumento),
+    confirmText: 'Guardar comprador',
+    validate: v => (!String(v.documento || '').trim() && !String(v.nombre || '').trim() && tenia) ? null : validateBuyer(v)
+  });
+  if(!res) return;
+  const { error } = await db.from('COMPONENTES').update(cleanBuyer(res)).eq('id', Number(pid));
+  if(error){
+    reportError('Error al guardar comprador', error);
+    return;
+  }
+  toast('Comprador guardado');
+  await loadFromSupabase();
+}
 
 async function addComponent(cid, btn){
   const nameInput = document.querySelector(`.ac-name[data-cid="${cid}"]`);
@@ -1650,7 +1743,11 @@ async function addComponent(cid, btn){
     precio_venta: sale !== null && !isNaN(sale) ? sale : null,
     costo: costo !== null && !isNaN(costo) ? costo : null
   };
-  if(payload.precio_venta !== null) payload.fecha_venta = new Date().toISOString();
+  if(payload.precio_venta !== null){
+    payload.fecha_venta = new Date().toISOString();
+    const buyer = await askBuyer(name, payload.precio_venta);
+    if(buyer) Object.assign(payload, buyer);
+  }
 
   setBusy(btn, true, 'Agregando...');
   const { error } = await db.from('COMPONENTES').insert(payload);
@@ -1671,16 +1768,33 @@ async function updateComponentSale(cid, pid, rawValue){
   const trimmed = String(rawValue).trim();
   const value = trimmed === '' ? null : parseFloat(trimmed);
   const clean = value === null || isNaN(value) ? null : value;
+  const { comp } = findComponent(cid, pid);
+  const eraPendiente = !comp || comp.sale === null;
+  const teniaComprador = !!(comp && (comp.compradorNombre || comp.compradorDocumento));
+
+  const update = { precio_venta: clean, fecha_venta: clean === null ? null : new Date().toISOString() };
+  // Venta nueva: se pregunta a quién se vendió (se puede omitir)
+  if(clean !== null && eraPendiente){
+    const buyer = await askBuyer(comp ? comp.name : 'Componente', clean);
+    if(buyer) Object.assign(update, buyer);
+  }
+  // Si se quita la venta, también se quita el comprador
+  if(clean === null && teniaComprador){
+    update.comprador_nombre = null;
+    update.comprador_documento = null;
+  }
+  // Editar el precio de una venta ya registrada conserva su fecha original
+  if(clean !== null && !eraPendiente && comp && comp.fechaVenta) update.fecha_venta = comp.fechaVenta;
 
   const { error } = await db.from('COMPONENTES')
-    .update({ precio_venta: clean, fecha_venta: clean === null ? null : new Date().toISOString() })
+    .update(update)
     .eq('id', Number(pid));
 
   if(error){
     reportError('Error al actualizar venta', error);
     return;
   }
-  toast(clean === null ? 'Venta quitada: el componente vuelve a stock' : 'Venta registrada');
+  toast(clean === null ? 'Venta quitada: el componente vuelve a stock' : (eraPendiente ? 'Venta registrada' : 'Precio de venta actualizado'));
   await loadFromSupabase();
 }
 
@@ -2104,6 +2218,11 @@ function repaintCharts(){
   Object.keys(chartState).forEach(id => paintBarChart(document.getElementById(id), chartState[id]));
 }
 
+function buyerSubHtml(r){
+  const txt = r.estado === 'vendido' ? buyerText(r.compradorNombre, r.compradorDocumento) : '';
+  return txt ? `<div class="sub buyer-line">${icon('user')}<span>${escapeHtml(txt)}</span></div>` : '';
+}
+
 function renderUltimasVentas(flat){
   const sold = flat.filter(r => r.estado === 'vendido')
     .sort((a,b) => new Date(b.fechaVenta || b.fecha || 0) - new Date(a.fechaVenta || a.fecha || 0))
@@ -2115,7 +2234,7 @@ function renderUltimasVentas(flat){
   }
   tbody.innerHTML = sold.map(r => `
     <tr>
-      <td class="strong">${escapeHtml(r.name)}</td>
+      <td class="strong">${escapeHtml(r.name)}${buyerSubHtml(r)}</td>
       <td class="hide-sm"><div class="cell-ellipsis muted" title="${escapeHtml(r.comboName)}">${escapeHtml(r.comboName)}</div></td>
       <td class="muted" style="white-space:nowrap;">${escapeHtml(fmtDate(r.fechaVenta || r.fecha))}</td>
       <td class="num">${fmt(r.sale)}</td>
@@ -2250,18 +2369,25 @@ async function inventarioRegistrarVenta(name){
   const res = await openDialog({
     title: 'Registrar venta',
     message: `"${name}" · se marcará 1 unidad como vendida${costo !== null ? ' (costo ' + fmt(costo) + ')' : ''}. ${items.length === 1 ? 'Es la única unidad' : 'Hay ' + items.length + ' unidades'} en stock.`,
-    fields: [{ name: 'precio', label: 'Precio de venta real', type: 'number', prefix: 'S/', value: sugerido, placeholder: '0.00' }],
+    fields: [{ name: 'precio', label: 'Precio de venta real', type: 'number', prefix: 'S/', value: sugerido, placeholder: '0.00' }]
+      .concat(buyerFields('', '')),
     confirmText: 'Registrar venta',
     validate: v => {
       const p = parseMoney(v.precio);
-      return (p === null || isNaN(p) || p < 0) ? 'Ingresa un precio válido.' : null;
+      if(p === null || isNaN(p) || p < 0) return 'Ingresa un precio válido.';
+      const doc = String(v.documento || '').trim();
+      if(doc && /^\d+$/.test(doc) && doc.length !== 8 && doc.length !== 11) return 'El DNI tiene 8 dígitos y el RUC 11.';
+      return null;
     }
   });
   if(!res) return;
   const value = parseMoney(res.precio);
   const target = items[0];
+  const update = { precio_venta: value, fecha_venta: new Date().toISOString() };
+  const buyer = cleanBuyer(res);
+  if(buyer.comprador_documento || buyer.comprador_nombre) Object.assign(update, buyer);
   const { error } = await db.from('COMPONENTES')
-    .update({ precio_venta: value, fecha_venta: new Date().toISOString() })
+    .update(update)
     .eq('id', Number(target.compId));
   if(error){
     reportError('Error al registrar venta', error);
@@ -2312,7 +2438,8 @@ function getHistorialRows(flat){
   let rows = (flat || getAllComponentsFlat()).slice().sort((a,b) => new Date(b.fechaVenta || b.fecha || 0) - new Date(a.fechaVenta || a.fecha || 0));
 
   if(search){
-    rows = rows.filter(r => (r.name || '').toLowerCase().includes(search) || (r.comboName || '').toLowerCase().includes(search));
+    rows = rows.filter(r => [r.name, r.comboName, r.compradorNombre, r.compradorDocumento]
+      .some(v => (v || '').toLowerCase().includes(search)));
   }
   if(estadoFiltro) rows = rows.filter(r => r.estado === estadoFiltro);
   if(proveedorFiltro) rows = rows.filter(r => r.proveedor === proveedorFiltro);
@@ -2338,7 +2465,7 @@ function renderHistorial(){
   tbody.innerHTML = rows.map(r => `
     <tr>
       <td class="muted" style="white-space:nowrap;">${escapeHtml(fmtDate(r.fechaVenta || r.fecha))}</td>
-      <td class="strong">${escapeHtml(r.name)}</td>
+      <td class="strong">${escapeHtml(r.name)}${buyerSubHtml(r)}</td>
       <td>
         <div class="cell-ellipsis" title="${escapeHtml(r.comboName)}">${escapeHtml(r.comboName)}</div>
         <div class="sub">${escapeHtml([r.proveedor, r.categoria].filter(Boolean).join(' · ') || 'Sin proveedor ni categoría')}</div>
@@ -2388,11 +2515,12 @@ function exportHistorialCSV(){
     return;
   }
   const n2 = v => v === null || v === undefined ? '' : Number(v).toFixed(2);
-  const header = ['Fecha','Producto','Compra','Proveedor','Categoría','Costo (S/)','Venta (S/)','Ganancia (S/)','Margen (%)','Estado'];
+  const header = ['Fecha','Producto','Compra','Proveedor','Categoría','Costo (S/)','Venta (S/)','Ganancia (S/)','Margen (%)','Estado','Tipo doc.','RUC/DNI comprador','Comprador'];
   const lines = rows.map(r => [
     localDateISO(r.fechaVenta || r.fecha), r.name, r.comboName, r.proveedor || '', r.categoria || '',
     n2(r.costo), n2(r.sale), n2(r.ganancia), r.margen === null ? '' : r.margen.toFixed(1),
-    r.estado === 'vendido' ? 'Vendido' : 'Pendiente'
+    r.estado === 'vendido' ? 'Vendido' : 'Pendiente',
+    r.compradorDocumento ? docLabel(r.compradorDocumento) : '', r.compradorDocumento || '', r.compradorNombre || ''
   ]);
   const csv = [header].concat(lines).map(cols => cols.map(csvCell).join(',')).join('\r\n');
   const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
