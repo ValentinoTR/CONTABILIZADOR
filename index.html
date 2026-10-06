@@ -705,7 +705,7 @@
       <section class="view-section visible" data-view="dashboard">
         <div class="kpi-grid">
           <div class="card kpi">
-            <div class="kpi-top"><span class="kpi-label">Capital invertido</span><span class="kpi-icon accent"><svg class="i" aria-hidden="true"><use href="#i-wallet"/></svg></span></div>
+            <div class="kpi-top"><span class="kpi-label">Invertido en stock</span><span class="kpi-icon accent"><svg class="i" aria-hidden="true"><use href="#i-wallet"/></svg></span></div>
             <div class="kpi-value" id="m-invertido">S/ 0.00</div>
             <div class="kpi-note" id="m-invertido-note">&nbsp;</div>
           </div>
@@ -716,12 +716,12 @@
             <div class="kpi-note" id="m-recuperado-note">&nbsp;</div>
           </div>
           <div class="card kpi">
-            <div class="kpi-top"><span class="kpi-label">Ganancia real</span><span class="kpi-icon gain"><svg class="i" aria-hidden="true"><use href="#i-trending"/></svg></span></div>
+            <div class="kpi-top"><span class="kpi-label">Ganancia neta</span><span class="kpi-icon gain"><svg class="i" aria-hidden="true"><use href="#i-trending"/></svg></span></div>
             <div class="kpi-value" id="m-ganancia">S/ 0.00</div>
             <div class="kpi-note" id="m-ganancia-note">&nbsp;</div>
           </div>
           <div class="card kpi">
-            <div class="kpi-top"><span class="kpi-label">Stock pendiente</span><span class="kpi-icon warn"><svg class="i" aria-hidden="true"><use href="#i-archive"/></svg></span></div>
+            <div class="kpi-top"><span class="kpi-label">Invertido (histórico)</span><span class="kpi-icon warn"><svg class="i" aria-hidden="true"><use href="#i-archive"/></svg></span></div>
             <div class="kpi-value" id="m-stock-pendiente">S/ 0.00</div>
             <div class="kpi-note" id="m-stock-pendiente-note">&nbsp;</div>
           </div>
@@ -1389,26 +1389,50 @@ function realCostSoles(combo){
   return baseConTax + envioTotal + (combo.taxUsa || 0) + (combo.impPeru || 0) + (combo.otros || 0);
 }
 
-// El costo real de la COMPRA completa (con envío/impuestos) se calcula solo,
-// porque sale de datos reales del formulario. El costo de cada componente
-// dentro de un combo, en cambio, NUNCA se adivina ni se reparte
-// automáticamente: si no lo escribes, queda vacío ("sin costo"), porque solo
-// tú sabes cuánto vale en realidad cada pieza dentro de un combo.
+// El costo real de la COMPRA completa (con envío/impuestos) sale del
+// formulario y es la plata que de verdad se gastó. Ese costo se reparte
+// entre los componentes: si escribiste un costo manual para una pieza, se
+// usa tal cual; lo que sobra del costo real se divide en partes iguales
+// entre las piezas sin costo manual. Así la ganancia de un componente
+// vendido no depende de que se hayan vendido también sus compañeros de
+// combo (vender solo el procesador ya puede dar ganancia, aunque la placa
+// y el disipador sigan en stock).
+function allocateCosts(combo){
+  const comps = combo.components;
+  const costoReal = realCostSoles(combo);
+  if(comps.length === 0) return [];
+  const conCostoManual = comps.filter(c => c.costo !== null);
+  const sinCostoManual = comps.filter(c => c.costo === null);
+  const sumaManual = conCostoManual.reduce((s,c) => s + c.costo, 0);
+  const remanente = Math.max(0, costoReal - sumaManual);
+  const porPieza = sinCostoManual.length > 0 ? remanente / sinCostoManual.length : 0;
+  return comps.map(c => ({
+    costoAsignado: c.costo !== null ? c.costo : porPieza,
+    estimado: c.costo === null
+  }));
+}
+
 function comboDerived(combo){
   const costoReal = realCostSoles(combo);
   const comps = combo.components;
+  const asignado = allocateCosts(combo);
 
-  const derivedComps = comps.map(c => {
-    const costoFinal = c.costo; // null = no definido, no se estima
-    const ganancia = (c.sale !== null && costoFinal !== null) ? c.sale - costoFinal : null;
+  const derivedComps = comps.map((c, i) => {
+    const costoFinal = asignado[i].costoAsignado;
+    const estimado = asignado[i].estimado;
+    const ganancia = c.sale !== null ? c.sale - costoFinal : null;
     const margen = (ganancia !== null && c.sale !== 0) ? (ganancia / c.sale) * 100 : null;
-    return Object.assign({}, c, { costoFinal, ganancia, margen });
+    return Object.assign({}, c, { costoFinal, estimado, ganancia, margen });
   });
 
   const recuperado = derivedComps.reduce((s,c) => s + (c.sale !== null ? c.sale : 0), 0);
-  const ganancia = recuperado - costoReal;
+  // Ganancia neta REALIZADA: solo lo que ya se vendió contra lo que costó
+  // esa pieza puntual. No se descuenta el costo de lo que sigue en stock.
+  const ganancia = derivedComps.reduce((s,c) => s + (c.ganancia !== null ? c.ganancia : 0), 0);
+  // Plata todavía metida en piezas de este combo que no se han vendido.
+  const stockValor = derivedComps.reduce((s,c) => s + (c.sale === null ? c.costoFinal : 0), 0);
 
-  return { costoReal, comps: derivedComps, recuperado, ganancia };
+  return { costoReal, comps: derivedComps, recuperado, ganancia, stockValor };
 }
 
 function getAllComponentsFlat(){
@@ -1420,7 +1444,7 @@ function getAllComponentsFlat(){
       rows.push({
         comboId: combo.id, comboName: combo.name, proveedor: combo.proveedor,
         categoria: combo.categoria, fecha, name: comp.name,
-        costo: comp.costoFinal, sale: comp.sale, ganancia: comp.ganancia, margen: comp.margen,
+        costo: comp.costoFinal, costoEstimado: comp.estimado, sale: comp.sale, ganancia: comp.ganancia, margen: comp.margen,
         estado: comp.sale !== null ? 'vendido' : 'pendiente',
         fechaVenta: comp.fechaVenta,
         compradorNombre: comp.compradorNombre, compradorDocumento: comp.compradorDocumento
@@ -1535,12 +1559,9 @@ function renderCompras(){
       : `<div class="table-wrap"><table class="data-table comp-table">
           <thead><tr><th>Componente</th><th class="hide-sm">Estado</th><th class="num">Costo</th><th class="num">Venta</th><th class="num">Ganancia</th><th class="num"><span class="sr-only">Acciones</span></th></tr></thead>
           <tbody>${der.comps.map(comp => {
-            let gananciaHtml = '<span class="muted">—</span>';
-            if(comp.sale !== null){
-              gananciaHtml = comp.ganancia !== null
-                ? `<div class="${moneyClass(comp.ganancia)}">${fmtSigned(comp.ganancia)}</div><div class="sub">${fmtPct(comp.margen)}</div>`
-                : '<span class="muted">sin costo</span>';
-            }
+            const gananciaHtml = comp.sale !== null
+              ? `<div class="${moneyClass(comp.ganancia)}">${fmtSigned(comp.ganancia)}</div><div class="sub">${fmtPct(comp.margen)}</div>`
+              : '<span class="muted">—</span>';
             return `
             <tr>
               <td>
@@ -1548,9 +1569,10 @@ function renderCompras(){
                 ${comp.sale !== null ? buyerChipHtml(c.id, comp) : ''}
               </td>
               <td class="hide-sm"><span class="badge ${comp.sale !== null ? 'vendido' : 'pendiente'}">${comp.sale !== null ? 'Vendido' : 'Pendiente'}</span></td>
-              <td class="num" data-label="Costo"><div class="input-affix sm" style="width:128px;margin-left:auto;"><span class="affix">S/</span>
+              <td class="num" data-label="Costo"><div class="input-affix sm" style="width:128px;margin-left:auto;"><span class="affix">${comp.estimado ? '≈' : 'S/'}</span>
                 <input type="number" class="comp-input comp-costo-input" step="0.01" min="0" inputmode="decimal"
-                  value="${comp.costo !== null ? comp.costo : ''}" placeholder="Opcional" aria-label="Costo de ${escapeHtml(comp.name)}"
+                  value="${comp.costo !== null ? comp.costo : ''}" placeholder="${comp.estimado ? comp.costoFinal.toFixed(2) : 'Opcional'}" aria-label="Costo de ${escapeHtml(comp.name)}"
+                  title="${comp.estimado ? 'Estimado: parte del costo total de la compra, repartida entre las piezas sin costo propio. Escribe un número para fijarlo tú mismo.' : 'Costo que escribiste para esta pieza.'}"
                   data-cid="${c.id}" data-pid="${comp.id}"></div></td>
               <td class="num" data-label="Venta"><div class="input-affix sm" style="width:128px;margin-left:auto;"><span class="affix">S/</span>
                 <input type="number" class="comp-input comp-sale-input" step="0.01" min="0" inputmode="decimal"
@@ -1573,7 +1595,7 @@ function renderCompras(){
         </div>
         <div class="combo-stats">
           <div class="combo-stat">
-            <div class="combo-stat-label">Costo real</div>
+            <div class="combo-stat-label">Costo total</div>
             <div class="combo-stat-value">${fmt(der.costoReal)}</div>
           </div>
           <div class="combo-stat">
@@ -1581,9 +1603,9 @@ function renderCompras(){
             <div class="combo-stat-value">${fmt(recuperadoCombo)}</div>
           </div>
           <div class="combo-stat">
-            <div class="combo-stat-label">Ganancia</div>
+            <div class="combo-stat-label">Ganancia neta</div>
             <div class="combo-stat-value ${moneyClass(gananciaCombo)}">${fmtSigned(gananciaCombo)}</div>
-            <div class="combo-stat-sub">${margenCombo !== null ? 'margen ' + fmtPct(margenCombo) : '&nbsp;'}</div>
+            <div class="combo-stat-sub">${margenCombo !== null ? 'margen ' + fmtPct(margenCombo) : (der.stockValor > 0 ? fmt(der.stockValor) + ' en stock' : '&nbsp;')}</div>
           </div>
         </div>
         <div class="combo-actions">
@@ -1665,19 +1687,22 @@ function buyerText(nombre, documento){
 }
 function buyerChipHtml(cid, comp){
   const txt = buyerText(comp.compradorNombre, comp.compradorDocumento);
-  return `<button type="button" class="buyer-chip${txt ? '' : ' empty'}" data-cid="${cid}" data-pid="${comp.id}" title="${txt ? 'Editar comprador' : 'Registrar a quién se vendió'}">${icon('user')}<span>${escapeHtml(txt || 'Agregar comprador (RUC/DNI)')}</span></button>`;
+  return `<button type="button" class="buyer-chip${txt ? '' : ' empty'}" data-cid="${cid}" data-pid="${comp.id}" title="${txt ? 'Editar comprador' : 'Registrar a quién se vendió'}">${icon('user')}<span>${escapeHtml(txt || 'Agregar comprador')}</span></button>`;
 }
 function buyerFields(nombre, documento){
   return [
-    { name: 'documento', label: 'RUC o DNI del comprador', value: documento || '', placeholder: 'Ej: 12345678 o 20123456789', help: 'DNI: 8 dígitos · RUC: 11 dígitos' },
-    { name: 'nombre', label: 'Nombre o razón social', value: nombre || '', placeholder: 'Opcional' }
+    { name: 'nombre', label: 'Nombre o razón social', value: nombre || '', placeholder: 'Ej: Juan Pérez (opcional)' },
+    { name: 'documento', label: 'RUC o DNI del comprador', value: documento || '', placeholder: 'Opcional · 12345678 o 20123456789', help: 'Ambos campos son opcionales. DNI: 8 dígitos · RUC: 11 dígitos.' }
   ];
 }
+// Los dos campos son opcionales: se puede guardar solo el nombre, solo el
+// documento, ambos, o ninguno (equivale a omitir). Solo se valida el
+// FORMATO del documento cuando sí se escribe algo.
 function validateBuyer(v){
   const doc = String(v.documento || '').trim();
-  if(!doc) return 'Ingresa el RUC o DNI del comprador (o pulsa "Omitir").';
-  if(/^\d+$/.test(doc) && doc.length !== 8 && doc.length !== 11) return 'El DNI tiene 8 dígitos y el RUC 11.';
+  if(!doc) return null;
   if(doc.length > 20) return 'El documento es demasiado largo.';
+  if(/^\d+$/.test(doc) && doc.length !== 8 && doc.length !== 11) return 'El DNI tiene 8 dígitos y el RUC 11.';
   return null;
 }
 function cleanBuyer(v){
@@ -1690,7 +1715,7 @@ function cleanBuyer(v){
 async function askBuyer(componentName, precio, current){
   const res = await openDialog({
     title: '¿A quién se vendió?',
-    message: `"${componentName}"${precio !== null && precio !== undefined ? ' · vendido por ' + fmt(precio) : ''}. Registra el RUC o DNI del comprador.`,
+    message: `"${componentName}"${precio !== null && precio !== undefined ? ' · vendido por ' + fmt(precio) : ''}. Puedes poner el nombre, el RUC/DNI, ambos, o ninguno.`,
     fields: buyerFields(current && current.nombre, current && current.documento),
     confirmText: 'Guardar comprador',
     cancelText: 'Omitir',
@@ -1708,7 +1733,7 @@ async function editComprador(cid, pid){
     message: `"${comp.name}"${comp.sale !== null ? ' · vendido por ' + fmt(comp.sale) : ''}.${tenia ? ' Deja ambos campos vacíos para quitar el comprador.' : ''}`,
     fields: buyerFields(comp.compradorNombre, comp.compradorDocumento),
     confirmText: 'Guardar comprador',
-    validate: v => (!String(v.documento || '').trim() && !String(v.nombre || '').trim() && tenia) ? null : validateBuyer(v)
+    validate: validateBuyer
   });
   if(!res) return;
   const { error } = await db.from('COMPONENTES').update(cleanBuyer(res)).eq('id', Number(pid));
@@ -1971,31 +1996,39 @@ document.getElementById('purchase-form').addEventListener('submit', async e => {
 
 /* ---------------- vista: Dashboard ---------------- */
 function renderDashboard(){
-  let invertido = 0, recuperado = 0, stockPendienteValor = 0, stockSinCosto = 0;
+  // invertidoStock: plata metida en lo que TODAVÍA no se vende (baja cuando vendes, sube cuando compras).
+  // invertidoHistorico: todo lo que se gastó alguna vez (de referencia, nunca baja).
+  // gananciaNeta: suma de (venta - costo) solo de lo YA vendido. No espera a que se venda todo un combo.
+  let invertidoStock = 0, invertidoHistorico = 0, recuperado = 0, gananciaNeta = 0;
   const flat = getAllComponentsFlat();
 
-  combos.forEach(c => { invertido += realCostSoles(c); });
+  combos.forEach(c => {
+    invertidoHistorico += realCostSoles(c);
+    if(c.components.length === 0) invertidoStock += realCostSoles(c); // compra sin componentes: todo sigue "parado"
+  });
   flat.forEach(row => {
-    if(row.estado === 'vendido') recuperado += row.sale;
-    else if(row.costo !== null) stockPendienteValor += row.costo;
-    else stockSinCosto++;
+    if(row.estado === 'vendido'){
+      recuperado += row.sale;
+      if(row.ganancia !== null) gananciaNeta += row.ganancia;
+    }else{
+      invertidoStock += row.costo;
+    }
   });
 
-  document.getElementById('m-invertido').textContent = fmt(invertido);
-  document.getElementById('m-invertido-note').textContent = plural(combos.length, 'compra registrada', 'compras registradas');
+  document.getElementById('m-invertido').textContent = fmt(invertidoStock);
 
   document.getElementById('m-recuperado').textContent = fmt(recuperado);
-  const pctRec = invertido > 0 ? (recuperado / invertido) * 100 : null;
+  const pctRec = invertidoHistorico > 0 ? (recuperado / invertidoHistorico) * 100 : null;
   document.getElementById('m-recuperado-meter').style.width = (pctRec === null ? 0 : Math.min(100, pctRec)) + '%';
-  document.getElementById('m-recuperado-note').textContent = pctRec === null ? 'Sin capital invertido todavía' : pctRec.toFixed(1) + '% del capital invertido';
+  document.getElementById('m-recuperado-note').textContent = pctRec === null ? 'Sin capital invertido todavía' : pctRec.toFixed(1) + '% de lo invertido históricamente';
 
   const gEl = document.getElementById('m-ganancia');
-  const gananciaTotal = recuperado - invertido;
-  gEl.textContent = fmtSigned(gananciaTotal);
-  gEl.className = 'kpi-value ' + (gananciaTotal >= 0 ? 'gain' : 'loss');
-  document.getElementById('m-ganancia-note').textContent = gananciaTotal >= 0
-    ? (invertido > 0 ? 'Inversión recuperada por completo' : 'Recuperado menos invertido')
-    : 'Faltan ' + fmt(-gananciaTotal) + ' para cubrir la inversión';
+  gEl.textContent = fmtSigned(gananciaNeta);
+  gEl.className = 'kpi-value ' + (gananciaNeta >= 0 ? 'gain' : 'loss');
+  document.getElementById('m-ganancia-note').textContent = 'De lo ya vendido · no incluye lo que sigue en stock';
+
+  document.getElementById('m-stock-pendiente').textContent = fmt(invertidoHistorico);
+  document.getElementById('m-stock-pendiente-note').textContent = plural(combos.length, 'compra registrada', 'compras registradas');
 
   const currentKey = lastNMonthKeys(1)[0];
   let ventasMes = 0, gananciaMes = 0, vendidosMes = 0, pendientesTotal = 0;
@@ -2009,9 +2042,7 @@ function renderDashboard(){
     }
   });
 
-  document.getElementById('m-stock-pendiente').textContent = fmt(stockPendienteValor);
-  document.getElementById('m-stock-pendiente-note').textContent = plural(pendientesTotal, 'unidad en stock', 'unidades en stock')
-    + (stockSinCosto > 0 ? ` · ${stockSinCosto} sin costo asignado` : '');
+  document.getElementById('m-invertido-note').textContent = plural(pendientesTotal, 'unidad por vender', 'unidades por vender');
 
   document.getElementById('m-mes-label').textContent = monthFullLabelOf(currentKey);
   document.getElementById('m-ventas-mes').textContent = fmt(ventasMes);
@@ -2238,7 +2269,7 @@ function renderUltimasVentas(flat){
       <td class="hide-sm"><div class="cell-ellipsis muted" title="${escapeHtml(r.comboName)}">${escapeHtml(r.comboName)}</div></td>
       <td class="muted" style="white-space:nowrap;">${escapeHtml(fmtDate(r.fechaVenta || r.fecha))}</td>
       <td class="num">${fmt(r.sale)}</td>
-      <td class="num ${moneyClass(r.ganancia)}">${r.ganancia !== null ? fmtSigned(r.ganancia) : '<span class="muted">sin costo</span>'}</td>
+      <td class="num ${moneyClass(r.ganancia)}">${fmtSigned(r.ganancia)}</td>
     </tr>
   `).join('');
 }
@@ -2252,17 +2283,17 @@ function getInventoryGroups(){
       if(comp.sale !== null) return;
       const key = comp.name.trim().toLowerCase();
       if(!map.has(key)) map.set(key, { name: comp.name.trim(), items: [] });
-      map.get(key).items.push({ comboId: combo.id, compId: comp.id, costo: comp.costoFinal, sugerido: comp.sugerido });
+      map.get(key).items.push({ comboId: combo.id, compId: comp.id, costo: comp.costoFinal, estimado: comp.estimado, sugerido: comp.sugerido });
     });
   });
   return Array.from(map.values()).map(g => {
     const stock = g.items.length;
-    const conCosto = g.items.filter(i => i.costo !== null);
-    const costoProm = conCosto.length ? conCosto.reduce((s,i) => s + i.costo, 0) / conCosto.length : null;
+    const costoTotal = g.items.reduce((s,i) => s + i.costo, 0);
+    const costoProm = stock ? costoTotal / stock : null;
     const sugeridos = g.items.map(i => i.sugerido).filter(v => v !== null);
     const ventaProm = sugeridos.length ? sugeridos.reduce((a,b) => a+b, 0) / sugeridos.length : null;
-    const ganancia = (costoProm !== null && ventaProm !== null) ? (ventaProm - costoProm) * stock : null;
-    return Object.assign({}, g, { stock, costoProm, ventaProm, ganancia, sinCosto: conCosto.length < stock });
+    const ganancia = ventaProm !== null ? (ventaProm - costoProm) * stock : null;
+    return Object.assign({}, g, { stock, costoTotal, costoProm, ventaProm, ganancia, algunoEstimado: g.items.some(i => i.estimado) });
   }).sort((a,b) => a.name.localeCompare(b.name));
 }
 
@@ -2292,10 +2323,10 @@ function renderInventario(){
     <tr>
       <td>
         <div class="strong">${escapeHtml(g.name)}</div>
-        ${g.sinCosto ? '<div class="sub">Hay unidades sin costo asignado</div>' : ''}
+
       </td>
       <td class="num"><span class="badge neutral">${g.stock}</span></td>
-      <td class="num">${g.costoProm !== null ? fmt(g.costoProm) : '<span class="muted">—</span>'}</td>
+      <td class="num" title="${g.algunoEstimado ? 'Incluye costo estimado: repartido del costo total de alguna compra, no escrito a mano.' : ''}">${g.costoProm !== null ? (g.algunoEstimado ? '≈' : '') + fmt(g.costoProm) : '<span class="muted">—</span>'}</td>
       <td class="num">${g.ventaProm !== null ? fmt(g.ventaProm) : '<span class="muted">—</span>'}</td>
       <td class="num ${moneyClass(g.ganancia)}">${g.ganancia !== null ? fmtSigned(g.ganancia) : '<span class="muted">—</span>'}</td>
       <td class="num">
@@ -2375,9 +2406,7 @@ async function inventarioRegistrarVenta(name){
     validate: v => {
       const p = parseMoney(v.precio);
       if(p === null || isNaN(p) || p < 0) return 'Ingresa un precio válido.';
-      const doc = String(v.documento || '').trim();
-      if(doc && /^\d+$/.test(doc) && doc.length !== 8 && doc.length !== 11) return 'El DNI tiene 8 dígitos y el RUC 11.';
-      return null;
+      return validateBuyer(v);
     }
   });
   if(!res) return;
@@ -2470,7 +2499,7 @@ function renderHistorial(){
         <div class="cell-ellipsis" title="${escapeHtml(r.comboName)}">${escapeHtml(r.comboName)}</div>
         <div class="sub">${escapeHtml([r.proveedor, r.categoria].filter(Boolean).join(' · ') || 'Sin proveedor ni categoría')}</div>
       </td>
-      <td class="num">${r.costo !== null ? fmt(r.costo) : '<span class="muted">—</span>'}</td>
+      <td class="num">${r.costo !== null ? (r.costoEstimado ? '≈' : '') + fmt(r.costo) : '<span class="muted">—</span>'}</td>
       <td class="num">${r.sale !== null ? fmt(r.sale) : '<span class="muted">—</span>'}</td>
       <td class="num ${moneyClass(r.ganancia)}">${r.ganancia !== null ? fmtSigned(r.ganancia) : '<span class="muted">—</span>'}</td>
       <td class="num">${fmtPct(r.margen)}</td>
@@ -2515,10 +2544,10 @@ function exportHistorialCSV(){
     return;
   }
   const n2 = v => v === null || v === undefined ? '' : Number(v).toFixed(2);
-  const header = ['Fecha','Producto','Compra','Proveedor','Categoría','Costo (S/)','Venta (S/)','Ganancia (S/)','Margen (%)','Estado','Tipo doc.','RUC/DNI comprador','Comprador'];
+  const header = ['Fecha','Producto','Compra','Proveedor','Categoría','Costo (S/)','Costo estimado','Venta (S/)','Ganancia (S/)','Margen (%)','Estado','Tipo doc.','RUC/DNI comprador','Comprador'];
   const lines = rows.map(r => [
     localDateISO(r.fechaVenta || r.fecha), r.name, r.comboName, r.proveedor || '', r.categoria || '',
-    n2(r.costo), n2(r.sale), n2(r.ganancia), r.margen === null ? '' : r.margen.toFixed(1),
+    n2(r.costo), r.costo === null ? '' : (r.costoEstimado ? 'Sí' : 'No'), n2(r.sale), n2(r.ganancia), r.margen === null ? '' : r.margen.toFixed(1),
     r.estado === 'vendido' ? 'Vendido' : 'Pendiente',
     r.compradorDocumento ? docLabel(r.compradorDocumento) : '', r.compradorDocumento || '', r.compradorNombre || ''
   ]);
