@@ -603,6 +603,8 @@
   <symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></symbol>
   <symbol id="i-shield" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></symbol>
   <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-check-plain" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15.5 5.5 3 3"/></symbol>
   <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></symbol>
   <symbol id="i-store" viewBox="0 0 24 24"><path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M2 7h20v3a3 3 0 0 1-6 0 3 3 0 0 1-4 0 3 3 0 0 1-4 0 3 3 0 0 1-6 0z"/></symbol>
   <symbol id="i-calendar" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></symbol>
@@ -788,8 +790,8 @@
           <div class="card" id="purchase-panel">
             <div class="card-head">
               <div>
-                <h2 class="card-title">Nueva compra</h2>
-                <p class="card-sub">Registra el total pagado por un producto o un combo completo. Completa lo demás solo si aplica.</p>
+                <h2 class="card-title" id="purchase-panel-title">Nueva compra</h2>
+                <p class="card-sub" id="purchase-panel-hint">Registra el total pagado por un producto o un combo completo. Completa lo demás solo si aplica.</p>
               </div>
             </div>
             <div class="card-body">
@@ -911,6 +913,7 @@
                 <div class="alert warn" id="c-rate-warning" style="display:none;"><svg class="i" aria-hidden="true"><use href="#i-alert"/></svg><span>Ingresa el tipo de cambio para convertir el costo a soles.</span></div>
                 <div class="alert" id="form-error" role="alert"><svg class="i" aria-hidden="true"><use href="#i-alert"/></svg><span>Ingresa el nombre y el costo de la compra.</span></div>
                 <button type="submit" class="btn btn-primary btn-block" id="add-combo-btn"><svg class="i" aria-hidden="true"><use href="#i-plus"/></svg>Agregar compra</button>
+                <button type="button" class="btn btn-secondary btn-block" id="cancel-edit-btn" style="display:none;">Cancelar edición</button>
               </div>
             </div>
           </div>
@@ -1060,6 +1063,7 @@ if(!window.supabase){
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
 let combos = [];
+let editingComboId = null;
 let pollTimer = null;
 let currentView = 'dashboard';
 let activeUserId = null;
@@ -1609,6 +1613,7 @@ function renderCompras(){
           </div>
         </div>
         <div class="combo-actions">
+          <button class="icon-btn sm edit-combo" data-cid="${c.id}" title="Editar compra" aria-label="Editar compra">${icon('edit')}</button>
           <button class="icon-btn sm combo-toggle" data-cid="${c.id}" aria-expanded="${!collapsed}" title="Mostrar u ocultar componentes" aria-label="Mostrar u ocultar componentes">${icon('chevron')}</button>
           <button class="icon-btn sm danger del-combo" data-cid="${c.id}" title="Eliminar compra" aria-label="Eliminar compra">${icon('trash')}</button>
         </div>
@@ -1638,6 +1643,9 @@ function renderCompras(){
       card.classList.toggle('collapsed', isCollapsed);
       btn.setAttribute('aria-expanded', String(!isCollapsed));
     });
+  });
+  container.querySelectorAll('.edit-combo').forEach(btn => {
+    btn.addEventListener('click', () => startEditCombo(btn.dataset.cid));
   });
   container.querySelectorAll('.del-combo').forEach(btn => {
     btn.addEventListener('click', () => deleteCombo(btn.dataset.cid));
@@ -1871,6 +1879,7 @@ async function deleteCombo(cid){
     return;
   }
   collapsedCombos.delete(String(cid));
+  if(editingComboId === String(cid)) cancelEditCombo(); // no dejar el formulario editando algo que ya no existe
   toast('Compra eliminada');
   await loadFromSupabase();
 }
@@ -1927,6 +1936,67 @@ document.getElementById('c-fecha').value = todayISO();
 syncCurrencyUI();
 updateCostoRealPreview();
 
+// Vacía el formulario y lo deja listo para registrar una compra nueva.
+function resetPurchaseForm(){
+  ['c-name','c-cost','c-rate','c-tax','c-proveedor','c-pedido','c-courier','c-peso','c-envio-kg','c-tax-usa','c-imp-peru','c-otros'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('c-currency').value = 'PEN';
+  document.getElementById('c-categoria').value = '';
+  document.getElementById('c-fecha').value = todayISO();
+  document.getElementById('form-error').style.display = 'none';
+  document.querySelectorAll('#purchase-form [aria-invalid]').forEach(el => el.removeAttribute('aria-invalid'));
+  syncCurrencyUI();
+  updateCostoRealPreview();
+}
+
+// Cambia el panel entre "Nueva compra" y "Editar compra" (mismo formulario para las dos cosas).
+function setEditModeUI(editing){
+  document.getElementById('purchase-panel-title').textContent = editing ? 'Editar compra' : 'Nueva compra';
+  document.getElementById('purchase-panel-hint').textContent = editing
+    ? 'Modifica los datos de esta compra y guarda los cambios. El costo real se recalcula solo.'
+    : 'Registra el total pagado por un producto o un combo completo. Completa lo demás solo si aplica.';
+  document.getElementById('add-combo-btn').innerHTML = editing
+    ? icon('check-plain') + 'Guardar cambios'
+    : icon('plus') + 'Agregar compra';
+  document.getElementById('cancel-edit-btn').style.display = editing ? 'inline-flex' : 'none';
+}
+
+// Carga los datos de una compra ya registrada en el formulario para editarla,
+// en vez de tener que borrarla y volver a crearla.
+function startEditCombo(cid){
+  const c = combos.find(x => x.id === String(cid));
+  if(!c) return;
+  editingComboId = c.id;
+  document.getElementById('c-name').value = c.name;
+  document.getElementById('c-cost').value = c.cost || '';
+  document.getElementById('c-currency').value = c.currency;
+  document.getElementById('c-rate').value = c.rate || '';
+  document.getElementById('c-tax').value = c.tax || '';
+  document.getElementById('c-categoria').value = c.categoria || '';
+  document.getElementById('c-fecha').value = c.fechaCompra || todayISO();
+  document.getElementById('c-proveedor').value = c.proveedor || '';
+  document.getElementById('c-pedido').value = c.numeroPedido || '';
+  document.getElementById('c-courier').value = c.courier || '';
+  document.getElementById('c-peso').value = c.pesoKg || '';
+  document.getElementById('c-envio-kg').value = c.envioKg || '';
+  document.getElementById('c-tax-usa').value = c.taxUsa || '';
+  document.getElementById('c-imp-peru').value = c.impPeru || '';
+  document.getElementById('c-otros').value = c.otros || '';
+  syncCurrencyUI();
+  updateCostoRealPreview();
+  setEditModeUI(true);
+  document.getElementById('purchase-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  document.getElementById('c-name').focus();
+}
+
+function cancelEditCombo(){
+  editingComboId = null;
+  resetPurchaseForm();
+  setEditModeUI(false);
+}
+document.getElementById('cancel-edit-btn').addEventListener('click', cancelEditCombo);
+
 document.getElementById('purchase-form').addEventListener('submit', async e => {
   e.preventDefault();
   const nameInput = document.getElementById('c-name');
@@ -1936,6 +2006,7 @@ document.getElementById('purchase-form').addEventListener('submit', async e => {
   const taxInput = document.getElementById('c-tax');
   const errorEl = document.getElementById('form-error');
   const submitBtn = document.getElementById('add-combo-btn');
+  const editingId = editingComboId;
 
   const name = nameInput.value.trim();
   const cost = parseFloat(costInput.value);
@@ -1970,20 +2041,26 @@ document.getElementById('purchase-form').addEventListener('submit', async e => {
   };
 
   setBusy(submitBtn, true, 'Guardando...');
-  const { error } = await db.from('COMPRAS').insert(payload);
+  const { error } = editingId
+    ? await db.from('COMPRAS').update(payload).eq('id', Number(editingId))
+    : await db.from('COMPRAS').insert(payload);
   setBusy(submitBtn, false);
 
   if(error){
-    reportError('Error al guardar compra', error);
+    reportError(editingId ? 'Error al actualizar compra' : 'Error al guardar compra', error);
     return;
   }
 
-  ['c-name','c-cost','c-rate','c-tax','c-proveedor','c-pedido','c-courier','c-peso','c-envio-kg','c-tax-usa','c-imp-peru','c-otros'].forEach(id => {
-    document.getElementById(id).value = '';
-  });
-  document.getElementById('c-categoria').value = '';
-  document.getElementById('c-fecha').value = todayISO();
-  updateCostoRealPreview();
+  editingComboId = null;
+  resetPurchaseForm();
+  setEditModeUI(false);
+
+  if(editingId){
+    toast('Compra "' + name + '" actualizada');
+    await loadFromSupabase();
+    return;
+  }
+
   toast('Compra "' + name + '" registrada. Ahora agrega sus componentes.');
   // Limpia filtros para que la compra nueva quede visible arriba de la lista.
   document.getElementById('compras-search').value = '';
@@ -2671,6 +2748,7 @@ document.getElementById('logout-btn-2').addEventListener('click', logout);
 // Evita perder lo que el usuario está escribiendo cuando llega la sincronización automática.
 function userIsEditing(){
   if(dialogOpen) return true;
+  if(editingComboId !== null) return true;
   const el = document.activeElement;
   if(el && el.closest && el.closest('#combos-container') && /^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName)) return true;
   return Array.from(document.querySelectorAll('.add-comp input')).some(i => i.value.trim() !== '');
